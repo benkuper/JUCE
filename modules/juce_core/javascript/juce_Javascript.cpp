@@ -2,7 +2,7 @@
   ==============================================================================
 
    This file is part of the JUCE library.
-   Copyright (c) 2020 - Raw Material Software Limited
+   Copyright (c) 2017 - ROLI Ltd.
 
    JUCE is an open source library subject to commercial or open-source
    licensing.
@@ -1802,7 +1802,7 @@ struct JavascriptEngine::RootObject   : public DynamicObject
         {
             auto s = getString (a, 0).trim();
 
-            return s[0] == '0' ? (s[1] == 'x' ? s.substring(2).getHexValue64() : getOctalValue (s))
+            return (s[0] == '0' && !getInt(a, 1))? (s[1] == 'x' ? s.substring(2).getHexValue64() : getOctalValue (s))
                                : s.getLargeIntValue();
         }
     };
