@@ -4122,7 +4122,7 @@ void MouseCursor::showInWindow (ComponentPeer* peer) const
         if (cursorHandle != nullptr && xDisplay.display != cursorDisplay)
         {
             cursorMap.erase (cursor);
-            XFreeCursor (cursorDisplay, cursor);
+            //XFreeCursor (cursorDisplay, cursor); //From @benkuper : quick fix to avoid crashes on linux when changing cursor
 
             if (auto* customInfo = cursorHandle->getCustomInfo())
                 cursorHandle->setHandle (customInfo->create());
