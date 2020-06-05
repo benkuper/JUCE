@@ -297,10 +297,10 @@ public:
 
 private:
 	ColourSelector& owner;
-	float& v;
 	float& h;
 	float &s;
-	const int edge;
+	float& v;
+    const int edge;
 
 	struct ValueSelectorMarker : public Component
 	{
