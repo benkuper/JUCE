@@ -7,12 +7,11 @@
    JUCE is an open source library subject to commercial or open-source
    licensing.
 
-   By using JUCE, you agree to the terms of both the JUCE 5 End-User License
-   Agreement and JUCE 5 Privacy Policy (both updated and effective as of the
-   22nd April 2020).
+   By using JUCE, you agree to the terms of both the JUCE 6 End-User License
+   Agreement and JUCE Privacy Policy (both effective as of the 16th June 2020).
 
-   End User License Agreement: www.juce.com/juce-5-licence
-   Privacy Policy: www.juce.com/juce-5-privacy-policy
+   End User License Agreement: www.juce.com/juce-6-licence
+   Privacy Policy: www.juce.com/juce-privacy-policy
 
    Or: You may also use this code under the terms of the GPL v3 (see
    www.gnu.org/licenses).
@@ -32,13 +31,11 @@
 #include "../utility/juce_CheckSettingMacros.h"
 #include "juce_IncludeModuleHeaders.h"
 
-using namespace juce;
-
 namespace juce
 {
 
 AudioProcessor::WrapperType PluginHostType::jucePlugInClientCurrentWrapperType = AudioProcessor::wrapperType_Undefined;
-std::function<bool(AudioProcessor&)> PluginHostType::jucePlugInIsRunningInAudioSuiteFn = nullptr;
+std::function<bool (AudioProcessor&)> PluginHostType::jucePlugInIsRunningInAudioSuiteFn = nullptr;
 
 #if JucePlugin_Build_Unity
  bool juce_isRunningInUnity()    { return PluginHostType::getPluginLoadedAs() == AudioProcessor::wrapperType_Unity; }
@@ -48,7 +45,7 @@ std::function<bool(AudioProcessor&)> PluginHostType::jucePlugInIsRunningInAudioS
  #define JUCE_VST3_CAN_REPLACE_VST2 1
 #endif
 
-#if JucePlugin_Build_VST3 && (__APPLE_CPP__ || __APPLE_CC__ || _WIN32 || _WIN64) && JUCE_VST3_CAN_REPLACE_VST2
+#if JucePlugin_Build_VST3 && (__APPLE_CPP__ || __APPLE_CC__ || _WIN32 || _WIN64 || LINUX || __linux__) && JUCE_VST3_CAN_REPLACE_VST2
 #define VST3_REPLACEMENT_AVAILABLE 1
 
 // NB: Nasty old-fashioned code in here because it's copied from the Steinberg example code.
@@ -149,14 +146,13 @@ bool JUCE_API handleManufacturerSpecificVST2Opcode (int32 index, pointer_sized_i
 
 } // namespace juce
 
+using namespace juce;
+
 //==============================================================================
 #if JucePlugin_Enable_IAA && JucePlugin_Build_Standalone && JUCE_IOS && (! JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP)
  extern bool JUCE_CALLTYPE juce_isInterAppAudioConnected();
  extern void JUCE_CALLTYPE juce_switchToHostApplication();
-
- #if JUCE_MODULE_AVAILABLE_juce_gui_basics
  extern Image JUCE_CALLTYPE juce_getIAAHostIcon (int);
- #endif
 #endif
 
 bool PluginHostType::isInterAppAudioConnected() const
@@ -191,7 +187,6 @@ bool PluginHostType::isInAAXAudioSuite (AudioProcessor& processor)
     return false;
 }
 
-#if JUCE_MODULE_AVAILABLE_juce_gui_basics
 namespace juce {
 
 extern Image JUCE_API getIconFromApplication (const String&, const int);
@@ -214,4 +209,3 @@ Image PluginHostType::getHostIcon (int size) const
 }
 
 }
-#endif

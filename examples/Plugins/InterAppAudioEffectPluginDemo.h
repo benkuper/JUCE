@@ -23,24 +23,26 @@
 
  BEGIN_JUCE_PIP_METADATA
 
- name:             InterAppAudioEffectPlugin
- version:          1.0.0
- vendor:           JUCE
- website:          http://juce.com
- description:      Inter-app audio effect plugin.
+ name:               InterAppAudioEffectPlugin
+ version:            1.0.0
+ vendor:             JUCE
+ website:            http://juce.com
+ description:        Inter-app audio effect plugin.
 
- dependencies:     juce_audio_basics, juce_audio_devices, juce_audio_formats,
-                   juce_audio_plugin_client, juce_audio_processors,
-                   juce_audio_utils, juce_core, juce_data_structures,
-                   juce_events, juce_graphics, juce_gui_basics, juce_gui_extra
- exporters:        xcode_iphone
+ dependencies:       juce_audio_basics, juce_audio_devices, juce_audio_formats,
+                     juce_audio_plugin_client, juce_audio_processors,
+                     juce_audio_utils, juce_core, juce_data_structures,
+                     juce_events, juce_graphics, juce_gui_basics, juce_gui_extra
+ exporters:          xcode_iphone
 
- moduleFlags:      JUCE_STRICT_REFCOUNTEDPOINTER=1
+ moduleFlags:        JUCE_STRICT_REFCOUNTEDPOINTER=1
 
- type:             AudioProcessor
- mainClass:        IAAEffectProcessor
+ type:               AudioProcessor
+ mainClass:          IAAEffectProcessor
 
- useLocalCopy:     1
+ useLocalCopy:       1
+
+ extraPluginFormats: IAA
 
  END_JUCE_PIP_METADATA
 
@@ -76,8 +78,6 @@ public:
         g.setColour (getLookAndFeel().findColour (Slider::trackColourId));
         g.fillRoundedRectangle (area.toFloat(), 6.0);
     }
-
-    void resized() override {}
 
     //==============================================================================
     // Called from the audio thread.
@@ -213,7 +213,7 @@ public:
     bool hasEditor() const override                                    { return true; }
 
     //==============================================================================
-    const String getName() const override                              { return JucePlugin_Name; }
+    const String getName() const override                              { return "InterAppAudioEffectPlugin"; }
     bool acceptsMidi() const override                                  { return false; }
     bool producesMidi() const override                                 { return false; }
     double getTailLengthSeconds() const override                       { return 0.0; }

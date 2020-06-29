@@ -7,12 +7,11 @@
    JUCE is an open source library subject to commercial or open-source
    licensing.
 
-   By using JUCE, you agree to the terms of both the JUCE 5 End-User License
-   Agreement and JUCE 5 Privacy Policy (both updated and effective as of the
-   22nd April 2020).
+   By using JUCE, you agree to the terms of both the JUCE 6 End-User License
+   Agreement and JUCE Privacy Policy (both effective as of the 16th June 2020).
 
-   End User License Agreement: www.juce.com/juce-5-licence
-   Privacy Policy: www.juce.com/juce-5-privacy-policy
+   End User License Agreement: www.juce.com/juce-6-licence
+   Privacy Policy: www.juce.com/juce-privacy-policy
 
    Or: You may also use this code under the terms of the GPL v3 (see
    www.gnu.org/licenses).
@@ -23,7 +22,7 @@
 
   ==============================================================================
 */
-#include <juce_core/system/juce_TargetPlatform.h>
+#include <juce_core/system/juce_CompilerWarnings.h>
 #include "../utility/juce_CheckSettingMacros.h"
 
 #if JucePlugin_Build_AU
@@ -33,25 +32,20 @@
  #define JUCE_SUPPORT_CARBON 0
 #endif
 
-#ifdef JUCE_CLANG
- #pragma clang diagnostic push
- #pragma clang diagnostic ignored "-Wshorten-64-to-32"
- #pragma clang diagnostic ignored "-Wunused-parameter"
- #pragma clang diagnostic ignored "-Wdeprecated-declarations"
- #pragma clang diagnostic ignored "-Wsign-conversion"
- #pragma clang diagnostic ignored "-Wconversion"
- #pragma clang diagnostic ignored "-Woverloaded-virtual"
- #pragma clang diagnostic ignored "-Wextra-semi"
- #pragma clang diagnostic ignored "-Wcast-align"
- #pragma clang diagnostic ignored "-Wshadow"
- #pragma clang diagnostic ignored "-Wswitch-enum"
- #if __has_warning("-Wzero-as-null-pointer-constant")
-  #pragma clang diagnostic ignored "-Wzero-as-null-pointer-constant"
- #endif
- #if __has_warning("-Wnullable-to-nonnull-conversion")
-  #pragma clang diagnostic ignored "-Wnullable-to-nonnull-conversion"
- #endif
-#endif
+JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wshorten-64-to-32",
+                                     "-Wunused-parameter",
+                                     "-Wdeprecated-declarations",
+                                     "-Wsign-conversion",
+                                     "-Wconversion",
+                                     "-Woverloaded-virtual",
+                                     "-Wextra-semi",
+                                     "-Wcast-align",
+                                     "-Wshadow",
+                                     "-Wswitch-enum",
+                                     "-Wzero-as-null-pointer-constant",
+                                     "-Wnullable-to-nonnull-conversion",
+                                     "-Wgnu-zero-variadic-macro-arguments",
+                                     "-Wformat-pedantic")
 
 #include "../utility/juce_IncludeSystemHeaders.h"
 
@@ -78,9 +72,7 @@
  #include "CoreAudioUtilityClasses/AUCarbonViewBase.h"
 #endif
 
-#ifdef JUCE_CLANG
- #pragma clang diagnostic pop
-#endif
+JUCE_END_IGNORE_WARNINGS_GCC_LIKE
 
 #define JUCE_MAC_WINDOW_VISIBITY_BODGE 1
 #define JUCE_CORE_INCLUDE_OBJC_HELPERS 1
@@ -1858,15 +1850,12 @@ private:
         UInt32 numPackets = 0;
         size_t dataSize = 0;
 
-        const juce::uint8* midiEventData;
-        int midiEventSize, midiEventPosition;
-
-        for (MidiBuffer::Iterator i (midiEvents); i.getNextEvent (midiEventData, midiEventSize, midiEventPosition);)
+        for (const auto metadata : midiEvents)
         {
-            jassert (isPositiveAndBelow (midiEventPosition, nFrames));
+            jassert (isPositiveAndBelow (metadata.samplePosition, nFrames));
             ignoreUnused (nFrames);
 
-            dataSize += (size_t) midiEventSize;
+            dataSize += (size_t) metadata.numBytes;
             ++numPackets;
         }
 
@@ -1880,11 +1869,11 @@ private:
 
         p = packetList->packet;
 
-        for (MidiBuffer::Iterator i (midiEvents); i.getNextEvent (midiEventData, midiEventSize, midiEventPosition);)
+        for (const auto metadata : midiEvents)
         {
-            p->timeStamp = (MIDITimeStamp) midiEventPosition;
-            p->length = (UInt16) midiEventSize;
-            memcpy (p->data, midiEventData, (size_t) midiEventSize);
+            p->timeStamp = (MIDITimeStamp) metadata.samplePosition;
+            p->length = (UInt16) metadata.numBytes;
+            memcpy (p->data, metadata.data, (size_t) metadata.numBytes);
             p = MIDIPacketNext (p);
         }
 
@@ -2526,19 +2515,11 @@ JUCE_FACTORY_ENTRY   (JuceAU, JucePlugin_AUExportPrefix)
 #endif
 
 #if ! JUCE_DISABLE_AU_FACTORY_ENTRY
- #ifdef JUCE_CLANG
-  #pragma clang diagnostic push
-  #pragma clang diagnostic ignored "-Wcast-align"
-  #if __has_warning("-Wzero-as-null-pointer-constant")
-   #pragma clang diagnostic ignored "-Wzero-as-null-pointer-constant"
-  #endif
- #endif
+ JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wcast-align", "-Wzero-as-null-pointer-constant")
 
  #include "CoreAudioUtilityClasses/AUPlugInDispatch.cpp"
 
- #ifdef JUCE_CLANG
-  #pragma clang diagnostic push
- #endif
+ JUCE_END_IGNORE_WARNINGS_GCC_LIKE
 #endif
 
 #endif
