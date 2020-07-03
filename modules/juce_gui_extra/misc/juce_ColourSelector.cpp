@@ -137,9 +137,9 @@ private:
         void paint (Graphics& g) override
         {
             g.setColour (Colour::greyLevel (0.1f));
-            g.drawEllipse (1.0f, 1.0f, getWidth() - 2.0f, getHeight() - 2.0f, 1.0f);
+            g.drawEllipse (1.0f, 1.0f, (float) getWidth() - 2.0f, (float) getHeight() - 2.0f, 1.0f);
             g.setColour (Colour::greyLevel (0.9f));
-            g.drawEllipse (2.0f, 2.0f, getWidth() - 4.0f, getHeight() - 4.0f, 1.0f);
+            g.drawEllipse (2.0f, 2.0f, (float) getWidth() - 4.0f, (float) getHeight() - 4.0f, 1.0f);
         }
     };
 
@@ -197,7 +197,7 @@ public:
 
     void mouseDrag (const MouseEvent& e) override
     {
-        owner.setHue ((e.y - edge) / (float) (getHeight() - edge * 2));
+        owner.setHue ((float) (e.y - edge) / (float) (getHeight() - edge * 2));
     }
 
     void updateIfNeeded()
