@@ -76,6 +76,14 @@
 #define JUCE_EXCLUSIVE_BINDING_BY_DEFAULT 0
 #endif
 
+/** Config: JUCE_IP_AND_PORT_DETECTION
+	If enabled, this will add remoteIP and remotePort variables to osc packets, corresponding to the sender's ip and port when receiving messages.
+*/
+#ifndef JUCE_IP_AND_PORT_DETECTION
+#define JUCE_IP_AND_PORT_DETECTION 0
+#endif
+
+
 //==============================================================================
 #include "osc/juce_OSCTypes.h"
 #include "osc/juce_OSCTimeTag.h"
