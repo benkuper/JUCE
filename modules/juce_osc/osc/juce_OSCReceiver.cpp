@@ -47,8 +47,14 @@ namespace juce
 				@param sourceData               the block of data to use as the stream's source
 				@param sourceDataSize           the number of bytes in the source data block
 			*/
-			OSCInputStream(const void* sourceData, size_t sourceDataSize)
-				: input(sourceData, sourceDataSize, false)
+#if JUCE_IP_AND_PORT_DETECTION
+			OSCInputStream(const void* sourceData, size_t sourceDataSize, const String& senderIPAddress, const int& senderPortNumber) :
+				senderIPAddress(senderIPAddress),
+				senderPortNumber(senderPortNumber),
+#else
+			OSCInputStream(const void* sourceData, size_t sourceDataSize) :
+#endif
+				input(sourceData, sourceDataSize, false)
 			{}
 
 			//==============================================================================
@@ -200,6 +206,11 @@ namespace juce
 
 				OSCMessage msg(ap);
 
+#if JUCE_IP_AND_PORT_DETECTION
+				msg.setSenderIPAddress(senderIPAddress);
+				msg.setSenderPortNumber(senderPortNumber);
+#endif
+				
 				for (auto& type : types)
 					msg.addArgument(readArgument(type));
 
@@ -263,6 +274,11 @@ namespace juce
 
 		private:
 			MemoryInputStream input;
+
+#if JUCE_IP_AND_PORT_DETECTION
+			String senderIPAddress;
+			int senderPortNumber;
+#endif
 
 			//==============================================================================
 			void readPaddingZeros(size_t bytesRead)
@@ -427,14 +443,21 @@ namespace juce
 		};
 
 		//==============================================================================
+#if JUCE_IP_AND_PORT_DETECTION
+		void handleBuffer(const char* data, size_t dataSize, const String& senderIPAddress, const int& senderPortNumber)
+#else
 		void handleBuffer(const char* data, size_t dataSize)
+#endif
 		{
-			OSCInputStream inStream(data, dataSize);
 
+#if JUCE_IP_AND_PORT_DETECTION
+			OSCInputStream inStream(data, dataSize, senderIPAddress, senderPortNumber);
+#else
+			OSCInputStream inStream(data, dataSize);
+#endif
 			try
 			{
 				auto content = inStream.readElementWithKnownSize(dataSize);
-
 				// realtime listeners should receive the OSC content first - and immediately
 				// on this thread:
 				callRealtimeListeners(content);
@@ -447,7 +470,7 @@ namespace juce
 				if (listeners.size() > 0 || listenersWithAddress.size() > 0)
 					postMessage(new CallbackMessage(content));
 			}
-			catch (const OSCFormatError & e)
+			catch (const OSCFormatError& e)
 			{
 				if (formatErrorHandler != nullptr)
 				{
@@ -481,10 +504,21 @@ namespace juce
 				if (ready == 0)
 					continue;
 
+#if JUCE_IP_AND_PORT_DETECTION
+				String senderIPAddress = "";
+				int senderPortNumber = 0;
+				auto bytesRead = (size_t)socket->read(oscBuffer.getData(), bufferSize, false, senderIPAddress, senderPortNumber);
+#else
 				auto bytesRead = (size_t)socket->read(oscBuffer.getData(), bufferSize, false);
-
+#endif
 				if (bytesRead >= 4)
+				{
+#if JUCE_IP_AND_PORT_DETECTION
+					handleBuffer(oscBuffer.getData(), bytesRead, senderIPAddress, senderPortNumber);
+#else
 					handleBuffer(oscBuffer.getData(), bytesRead);
+#endif
+				}
 			}
 		}
 
