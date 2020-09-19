@@ -119,9 +119,32 @@ endfunction()
 
 # ==================================================================================================
 
+set(JUCE_CMAKE_UTILS_DIR ${CMAKE_CURRENT_LIST_DIR}
+    CACHE INTERNAL "The path to the folder holding this file and other resources")
+
+include("${JUCE_CMAKE_UTILS_DIR}/JUCEHelperTargets.cmake")
+
+# Tries to discover the target platform architecture, which is necessary for
+# naming VST3 bundle folders correctly.
+function(_juce_find_linux_target_architecture result)
+    set(test_file "${JUCE_CMAKE_UTILS_DIR}/juce_runtime_arch_detection.cpp")
+    try_compile(compile_result "${CMAKE_CURRENT_BINARY_DIR}" "${test_file}"
+        OUTPUT_VARIABLE compile_output)
+    string(REGEX REPLACE ".*JUCE_ARCH ([a-zA-Z0-9_-]*).*" "\\1" match_result "${compile_output}")
+    set("${result}" "${match_result}" PARENT_SCOPE)
+endfunction()
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     _juce_create_pkgconfig_target(JUCE_CURL_LINUX_DEPS libcurl)
     _juce_create_pkgconfig_target(JUCE_BROWSER_LINUX_DEPS webkit2gtk-4.0 gtk+-x11-3.0)
+
+    # If you really need to override the detected arch for some reason,
+    # you can configure the build with -DJUCE_LINUX_TARGET_ARCHITECTURE=<custom arch>
+    if(NOT DEFINED JUCE_LINUX_TARGET_ARCHITECTURE)
+        _juce_find_linux_target_architecture(target_arch)
+        set(JUCE_LINUX_TARGET_ARCHITECTURE "${target_arch}"
+            CACHE INTERNAL "The target architecture, used to name internal folders in VST3 bundles")
+    endif()
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     find_program(JUCE_RC_COMPILER Rez NO_DEFAULT_PATHS PATHS "/Applications/Xcode.app/Contents/Developer/usr/bin")
 
@@ -129,11 +152,6 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         message(WARNING "failed to find Rez; older resource-based AU plug-ins may not work correctly")
     endif()
 endif()
-
-set(JUCE_CMAKE_UTILS_DIR ${CMAKE_CURRENT_LIST_DIR}
-    CACHE INTERNAL "The path to the folder holding this file and other resources")
-
-include("${JUCE_CMAKE_UTILS_DIR}/JUCEHelperTargets.cmake")
 
 # We set up default/fallback copy dirs here. If you need different copy dirs, use
 # set_directory_properties or set_target_properties to adjust the values of `JUCE_*_COPY_DIR` at
@@ -455,8 +473,6 @@ function(juce_add_module module_path)
     get_filename_component(module_name ${module_path} NAME)
     get_filename_component(module_parent_path ${module_path} DIRECTORY)
 
-    set(installed_module_path "${JUCE_ARG_INSTALL_PATH}")
-
     set(module_header_name "${module_name}.h")
 
     if(NOT EXISTS "${module_path}/${module_header_name}")
@@ -467,7 +483,7 @@ function(juce_add_module module_path)
         message(FATAL_ERROR "Could not locate module header for module '${module_path}'")
     endif()
 
-    set(base_path "$<BUILD_INTERFACE:${module_parent_path}>$<INSTALL_INTERFACE:${installed_module_path}>")
+    set(base_path "${module_parent_path}")
 
     list(APPEND all_module_sources "${base_path}/${module_name}/${module_header_name}")
 
@@ -589,12 +605,19 @@ function(juce_add_module module_path)
     _juce_get_metadata("${metadata_dict}" dependencies module_dependencies)
     target_link_libraries(${module_name} INTERFACE ${module_dependencies})
 
-    if(installed_module_path)
-        install(DIRECTORY "${module_path}" DESTINATION "${installed_module_path}")
+    if(JUCE_ARG_INSTALL_PATH)
+        install(DIRECTORY "${module_path}" DESTINATION "${JUCE_ARG_INSTALL_PATH}")
     endif()
 
     if(JUCE_ARG_ALIAS_NAMESPACE)
         add_library(${JUCE_ARG_ALIAS_NAMESPACE}::${module_name} ALIAS ${module_name})
+    endif()
+
+    if(JUCE_ENABLE_MODULE_SOURCE_GROUPS)
+        file(GLOB_RECURSE extra_files LIST_DIRECTORIES FALSE "${module_path}/*")
+        add_custom_target(${module_name}_sources SOURCES ${extra_files})
+        set_target_properties(${module_name}_sources PROPERTIES FOLDER Modules)
+        source_group(TREE "${module_path}" FILES ${extra_files})
     endif()
 endfunction()
 
@@ -776,7 +799,7 @@ function(juce_add_binary_data target)
 
     set(juce_binary_data_folder "${CMAKE_CURRENT_BINARY_DIR}/juce_binarydata_${target}/JuceLibraryCode")
 
-    list(APPEND binary_file_names "${juce_binary_data_folder}/BinaryData.h")
+    set(binary_file_names)
 
     foreach(index RANGE 1 ${num_binary_files})
         list(APPEND binary_file_names "${juce_binary_data_folder}/BinaryData${index}.cpp")
@@ -791,6 +814,8 @@ function(juce_add_binary_data target)
     if(NOT JUCE_ARG_HEADER_NAME)
         set(JUCE_ARG_HEADER_NAME BinaryData.h)
     endif()
+
+    list(APPEND binary_file_names "${juce_binary_data_folder}/${JUCE_ARG_HEADER_NAME}")
 
     add_custom_command(OUTPUT ${binary_file_names}
         COMMAND juce::juceaide binarydata "${JUCE_ARG_NAMESPACE}" "${JUCE_ARG_HEADER_NAME}"
@@ -1233,13 +1258,9 @@ function(_juce_set_plugin_target_properties shared_code_target kind)
         set(output_path "${products_folder}/${product_name}.vst3")
 
         if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-            # On linux we assume that the output arch is the same as the that of the host platform
-            set(is_platform_x64 $<EQUAL:${CMAKE_SIZEOF_VOID_P},8>)
-            set(arch_string $<IF:${is_platform_x64},x86_64,i386>)
-
             set_target_properties(${target_name} PROPERTIES
                 SUFFIX .so
-                LIBRARY_OUTPUT_DIRECTORY "${output_path}/Contents/${arch_string}-linux")
+                LIBRARY_OUTPUT_DIRECTORY "${output_path}/Contents/${JUCE_LINUX_TARGET_ARCHITECTURE}-linux")
         endif()
 
         _juce_copy_after_build(${shared_code_target} ${target_name} "${output_path}" JUCE_VST3_COPY_DIR)
@@ -1944,13 +1965,6 @@ function(_juce_initialise_target target)
 
     _juce_write_generate_time_info(${target})
     _juce_link_optional_libraries(${target})
-
-    file(GLOB juce_module_folders RELATIVE "${JUCE_MODULES_DIR}" "${JUCE_MODULES_DIR}/*")
-
-    foreach(module_folder IN LISTS juce_module_folders)
-        file(GLOB_RECURSE juce_module_files "${JUCE_MODULES_DIR}/${module_folder}/*")
-        source_group(TREE "${JUCE_MODULES_DIR}" PREFIX "Modules" FILES ${juce_module_files})
-    endforeach()
 endfunction()
 
 # ==================================================================================================

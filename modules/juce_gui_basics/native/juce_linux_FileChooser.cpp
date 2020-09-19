@@ -32,15 +32,12 @@ static bool exeIsAvailable (String executable)
 
     if (child.start ("which " + executable))
     {
-        auto output = child.readAllProcessOutput().trim();
         child.waitForProcessToFinish (60 * 1000);
-
-        return output.isNotEmpty() && ! output.contains ("no " + executable);
+        return (child.getExitCode() == 0);
     }
 
     return false;
 }
-
 
 class FileChooser::Native    : public FileChooser::Pimpl,
                                private Timer
@@ -191,7 +188,7 @@ private:
         }
 
         args.add (startPath.getFullPathName());
-        args.add (owner.filters.replaceCharacter (';', ' '));
+        args.add ("(" + owner.filters.replaceCharacter (';', ' ') + ")");
     }
 
     void addZenityArgs()
