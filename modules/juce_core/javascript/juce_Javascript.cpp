@@ -1730,6 +1730,7 @@ struct JavascriptEngine::RootObject   : public DynamicObject
             setMethod ("cos",       Math_cos);              setMethod ("acos",      Math_acos);
             setMethod ("cosh",      Math_cosh);             setMethod ("acosh",     Math_acosh);
             setMethod ("tan",       Math_tan);              setMethod ("atan",      Math_atan);
+                                                            setMethod ("atan2",     Math_atan2);
             setMethod ("tanh",      Math_tanh);             setMethod ("atanh",     Math_atanh);
             setMethod ("log",       Math_log);              setMethod ("log10",     Math_log10);
             setMethod ("exp",       Math_exp);              setMethod ("pow",       Math_pow);
@@ -1779,6 +1780,7 @@ struct JavascriptEngine::RootObject   : public DynamicObject
         static var Math_asinh     (Args a) { return asinh (getDouble (a, 0)); }
         static var Math_acosh     (Args a) { return acosh (getDouble (a, 0)); }
         static var Math_atanh     (Args a) { return atanh (getDouble (a, 0)); }
+        static var Math_atan2     (Args a) { return atan2 (getDouble (a, 0), getDouble(a, 1)); }
 
         static Identifier getClassName()   { static const Identifier i ("Math"); return i; }
         template <typename Type> static Type sign (Type n) noexcept  { return n > 0 ? (Type) 1 : (n < 0 ? (Type) -1 : 0); }
