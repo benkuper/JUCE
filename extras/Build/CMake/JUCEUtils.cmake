@@ -1368,11 +1368,12 @@ function(_juce_set_plugin_folder_property shared_target wrapper_target)
     get_target_property(folder_to_use "${shared_target}" FOLDER)
 
     if(folder_to_use STREQUAL "folder_to_use-NOTFOUND")
-        set(folder_to_use "${shared_target}")
-    else()
-        set(folder_to_use "${folder_to_use}/${shared_target}")
+        set_target_properties("${shared_target}" PROPERTIES FOLDER "${shared_target}")
+    elseif(NOT folder_to_use MATCHES ".*${shared_target}$")
+        set_target_properties("${shared_target}" PROPERTIES FOLDER "${folder_to_use}/${shared_target}")
     endif()
 
+    get_target_property(folder_to_use "${shared_target}" FOLDER)
     set_target_properties("${wrapper_target}" PROPERTIES FOLDER "${folder_to_use}")
 endfunction()
 
@@ -1560,7 +1561,7 @@ function(_juce_configure_plugin_targets target)
         JucePlugin_AUExportPrefix=$<TARGET_PROPERTY:${target},JUCE_AU_EXPORT_PREFIX>
         JucePlugin_AUExportPrefixQuoted="$<TARGET_PROPERTY:${target},JUCE_AU_EXPORT_PREFIX>"
         JucePlugin_AUManufacturerCode=JucePlugin_ManufacturerCode
-        JucePlugin_CFBundleIdentifier="$<TARGET_PROPERTY:${target},JUCE_BUNDLE_ID>"
+        JucePlugin_CFBundleIdentifier=$<TARGET_PROPERTY:${target},JUCE_BUNDLE_ID>
         JucePlugin_AAXIdentifier=$<TARGET_PROPERTY:${target},JUCE_AAX_IDENTIFIER>
         JucePlugin_AAXManufacturerCode=JucePlugin_ManufacturerCode
         JucePlugin_AAXProductId=JucePlugin_PluginCode
