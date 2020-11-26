@@ -3319,11 +3319,18 @@ void VST3PluginFormat::findAllTypesForFile (OwnedArray<PluginDescription>& resul
 
         if (pluginFactory != nullptr)
         {
-            ComSmartPtr<VST3HostContext> host (new VST3HostContext());
-            DescriptionLister lister (host, pluginFactory);
-            lister.findDescriptionsAndPerform (File (fileOrIdentifier));
+            VST3HostContext* context = new VST3HostContext();
+            int numRefAfterDelete = 0;
+            {
+                ComSmartPtr<VST3HostContext> host(context);
+                DescriptionLister lister(host, pluginFactory);
+                lister.findDescriptionsAndPerform(File(fileOrIdentifier));
+                results.addCopiesOf(lister.list);
 
-            results.addCopiesOf (lister.list);
+                numRefAfterDelete = host.releaseAndGetRefCount();
+            }
+
+            if(numRefAfterDelete > 1) delete context; //ref should only be one, otherwise this will lead to a memory leak
         }
         else
         {

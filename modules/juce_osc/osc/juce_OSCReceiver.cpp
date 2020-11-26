@@ -210,7 +210,7 @@ namespace juce
 				msg.setSenderIPAddress(senderIPAddress);
 				msg.setSenderPortNumber(senderPortNumber);
 #endif
-				
+
 				for (auto& type : types)
 					msg.addArgument(readArgument(type));
 
@@ -325,8 +325,7 @@ namespace juce
 			}
 		};
 
-	} // namespace
-
+	} //namespace
 
 	//==============================================================================
 	struct OSCReceiver::Pimpl : private Thread,

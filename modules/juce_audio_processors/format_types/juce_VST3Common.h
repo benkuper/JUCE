@@ -393,6 +393,14 @@ public:
         return factory->createInstance (uuid, ObjectType::iid, (void**) &source) == Steinberg::kResultOk;
     }
 
+    int releaseAndGetRefCount()
+    {
+        int result = 0;
+        if (source != nullptr) result = source->release();
+        source = nullptr;
+        return result;
+    }
+
 private:
     ObjectType* source;
 };
