@@ -62,13 +62,14 @@ juce_add_plugin(AudioPluginExample
 # juce_generate_juce_header(AudioPluginExample)
 
 # `target_sources` adds source files to a target. We pass the target that needs the sources as the
-# first argument, then a visibility parameter for the sources (PRIVATE is normally best practice,
-# although it doesn't really affect executable targets). Finally, we supply a list of source files
-# that will be built into the target. This is a standard CMake command.
+# first argument, then a visibility parameter for the sources which should normally be PRIVATE.
+# Finally, we supply a list of source files that will be built into the target. This is a standard
+# CMake command.
 
-target_sources(AudioPluginExample PRIVATE
-    PluginEditor.cpp
-    PluginProcessor.cpp)
+target_sources(AudioPluginExample
+    PRIVATE
+        PluginEditor.cpp
+        PluginProcessor.cpp)
 
 # `target_compile_definitions` adds some preprocessor definitions to our target. In a Projucer
 # project, these might be passed in the 'Preprocessor Definitions' field. JUCE modules also make use
@@ -79,10 +80,10 @@ target_sources(AudioPluginExample PRIVATE
 
 target_compile_definitions(AudioPluginExample
     PUBLIC
-    # JUCE_WEB_BROWSER and JUCE_USE_CURL would be on by default, but you might not need them.
-    JUCE_WEB_BROWSER=0  # If you remove this, add `NEEDS_WEB_BROWSER TRUE` to the `juce_add_plugin` call
-    JUCE_USE_CURL=0     # If you remove this, add `NEEDS_CURL TRUE` to the `juce_add_plugin` call
-    JUCE_VST3_CAN_REPLACE_VST2=0)
+        # JUCE_WEB_BROWSER and JUCE_USE_CURL would be on by default, but you might not need them.
+        JUCE_WEB_BROWSER=0  # If you remove this, add `NEEDS_WEB_BROWSER TRUE` to the `juce_add_plugin` call
+        JUCE_USE_CURL=0     # If you remove this, add `NEEDS_CURL TRUE` to the `juce_add_plugin` call
+        JUCE_VST3_CAN_REPLACE_VST2=0)
 
 # If your target needs extra binary assets, you can add them here. The first argument is the name of
 # a new static library target that will include all the binary resources. There is an optional
@@ -99,6 +100,11 @@ target_compile_definitions(AudioPluginExample
 # linked automatically. If we'd generated a binary data target above, we would need to link to it
 # here too. This is a standard CMake command.
 
-target_link_libraries(AudioPluginExample PRIVATE
-    # AudioPluginData           # If we'd created a binary data target, we'd link to it here
-    juce::juce_audio_utils)
+target_link_libraries(AudioPluginExample
+    PRIVATE
+        # AudioPluginData           # If we'd created a binary data target, we'd link to it here
+        juce::juce_audio_utils
+    PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_lto_flags
+        juce::juce_recommended_warning_flags)
