@@ -1798,7 +1798,12 @@ struct JavascriptEngine::RootObject   : public DynamicObject
     //==============================================================================
     struct IntegerClass  : public DynamicObject
     {
-        IntegerClass()                     { setMethod ("parseInt",  parseInt); }
+        IntegerClass()                     
+        { 
+            setMethod ("parseInt",  parseInt); 
+            setMethod("toHexString", toHexString);
+        }
+
         static Identifier getClassName()   { static const Identifier i ("Integer"); return i; }
 
         static var parseInt (Args a)
@@ -1808,6 +1813,8 @@ struct JavascriptEngine::RootObject   : public DynamicObject
             return (s[0] == '0' && !getInt(a, 1))? (s[1] == 'x' ? s.substring(2).getHexValue64() : getOctalValue (s))
                                : s.getLargeIntValue();
         }
+
+        static var toHexString(Args a) { return String::toHexString(getInt(a, 0)); }
     };
 
     //==============================================================================
