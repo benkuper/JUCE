@@ -1050,11 +1050,11 @@ namespace IconConverters
 }
 
 //==============================================================================
-JUCE_COMCLASS (ITipInvocation, "37c994e7-432b-4834-a2f7-dce1f13b834b")  : public IUnknown
+JUCE_IUNKNOWNCLASS (ITipInvocation, "37c994e7-432b-4834-a2f7-dce1f13b834b")
 {
     static CLSID getCLSID() noexcept   { return { 0x4ce576fa, 0x83dc, 0x4f88, { 0x95, 0x1c, 0x9d, 0x07, 0x82, 0xb4, 0xe3, 0x76 } }; }
 
-    virtual HRESULT STDMETHODCALLTYPE Toggle (HWND) = 0;
+    JUCE_COMCALL Toggle (HWND) = 0;
 };
 
 struct OnScreenKeyboard   : public DeletedAtShutdown,
@@ -1150,14 +1150,14 @@ typedef HSTRING_PRIVATE* HSTRING;
 
 struct IInspectable : public IUnknown
 {
-    virtual HRESULT STDMETHODCALLTYPE GetIids (ULONG* ,IID**) = 0;
-    virtual HRESULT STDMETHODCALLTYPE GetRuntimeClassName (HSTRING*) = 0;
-    virtual HRESULT STDMETHODCALLTYPE GetTrustLevel (void*) = 0;
+    JUCE_COMCALL GetIids (ULONG* ,IID**) = 0;
+    JUCE_COMCALL GetRuntimeClassName (HSTRING*) = 0;
+    JUCE_COMCALL GetTrustLevel (void*) = 0;
 };
 
 JUCE_COMCLASS (IUIViewSettingsInterop, "3694dbf9-8f68-44be-8ff5-195c98ede8a6")  : public IInspectable
 {
-    virtual HRESULT STDMETHODCALLTYPE GetForWindow (HWND, REFIID, void**) = 0;
+    JUCE_COMCALL GetForWindow (HWND, REFIID, void**) = 0;
 };
 
 JUCE_COMCLASS (IUIViewSettings, "c63657f6-8850-470d-88f8-455e16ea2c26")  : public IInspectable
@@ -1168,7 +1168,7 @@ JUCE_COMCLASS (IUIViewSettings, "c63657f6-8850-470d-88f8-455e16ea2c26")  : publi
         Touch = 1
     };
 
-    virtual HRESULT STDMETHODCALLTYPE GetUserInteractionMode (UserInteractionMode*) = 0;
+    JUCE_COMCALL GetUserInteractionMode (UserInteractionMode*) = 0;
 };
 
 
@@ -1416,8 +1416,8 @@ public:
 
         if (auto parentH = GetParent (hwnd))
         {
-            auto r = getWindowRect (parentH);
-            auto localBounds = rectangleFromRECT (bounds).translated (-r.left, -r.top);
+            MapWindowPoints (HWND_DESKTOP, parentH, (LPPOINT) &bounds, 2);
+            auto localBounds = rectangleFromRECT (bounds);
 
            #if JUCE_WIN_PER_MONITOR_DPI_AWARE
             if (isPerMonitorDPIAwareWindow (hwnd))
@@ -2186,7 +2186,7 @@ private:
             // This is needed so that our plugin window gets notified of WM_SETTINGCHANGE messages
             // and can respond to display scale changes
             if (! JUCEApplication::isStandaloneApp())
-                settingChangeCallback = forceDisplayUpdate;
+                settingChangeCallback = ComponentPeer::forceDisplayUpdate;
 
             // Calling this function here is (for some reason) necessary to make Windows
             // correctly enable the menu items that we specify in the wm_initmenu message.
@@ -3417,11 +3417,6 @@ private:
             setWindowPos (hwnd, ScalingHelpers::scaledScreenPosToUnscaled (component, Desktop::getInstance().getDisplays()
                                                                                               .getDisplayForRect (component.getScreenBounds())->userArea),
                           SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOZORDER | SWP_NOSENDCHANGING);
-    }
-
-    static void forceDisplayUpdate()
-    {
-        const_cast<Displays&> (Desktop::getInstance().getDisplays()).refresh();
     }
 
     //==============================================================================

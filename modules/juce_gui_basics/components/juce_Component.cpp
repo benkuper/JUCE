@@ -2605,6 +2605,9 @@ void Component::internalMagnifyGesture (MouseInputSource source, Point<float> re
 
 void Component::sendFakeMouseMove() const
 {
+    if (flags.ignoresMouseClicksFlag && ! flags.allowChildMouseClicksFlag)
+        return;
+
     auto mainMouse = Desktop::getInstance().getMainMouseSource();
 
     if (! mainMouse.isDragging())
