@@ -412,6 +412,12 @@ public:
                 imports->setAttribute ("Project", "$(VCTargetsPath)\\Microsoft.Cpp.Default.props");
             }
 
+            {
+                auto* preferredToolArch = projectXml.createNewChildElement("PropertyGroup");
+                preferredToolArch->setAttribute("Label", "PreferredToolArchitecture");
+                preferredToolArch->createNewChildElement("PreferredToolArchitecture")->addTextElement("x64");
+            }
+
             for (ConstConfigIterator i (owner); i.next();)
             {
                 auto& config = dynamic_cast<const MSVCBuildConfiguration&> (*i);
