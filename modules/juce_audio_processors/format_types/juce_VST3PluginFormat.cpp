@@ -3254,7 +3254,7 @@ void VST3PluginFormat::findAllTypesForFile (OwnedArray<PluginDescription>& resul
             VST3HostContext* context = new VST3HostContext();
             int numRefAfterDelete = 0;
             {
-                ComSmartPtr<VST3HostContext> host(context);
+                VSTComSmartPtr<VST3HostContext> host(context);
                 DescriptionLister lister(host, pluginFactory);
                 lister.findDescriptionsAndPerform(File(fileOrIdentifier));
                 results.addCopiesOf(lister.list);
