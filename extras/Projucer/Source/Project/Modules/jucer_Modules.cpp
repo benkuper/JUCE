@@ -68,7 +68,7 @@ void LibraryModule::addSearchPathsToExporter (ProjectExporter& exporter) const
     else if (exporter.isCodeBlocks() && exporter.isWindows())
         libDirPlatform = "MinGW";
     else
-        libDirPlatform = exporter.getTargetFolder().getFileName();
+        libDirPlatform = exporter.getCurrentPlatformExporterTypeInfo().targetFolder;
 
     auto libSubdirPath = moduleRelativePath.toUnixStyle() + "/libs/" + libDirPlatform;
     auto moduleLibDir = File (exporter.getProject().getProjectFolder().getFullPathName() + "/" + libSubdirPath);
