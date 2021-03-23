@@ -423,9 +423,8 @@ function(_juce_add_au_resource_fork shared_code_target au_target)
             -d "ppc_$ppc" -d "i386_$i386" -d "ppc64_$ppc64" -d "x86_64_$x86_64"
             -I "${secret_au_resource_dir}"
             -I "/System/Library/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Versions/A/Headers"
-            -I "/Applications/Xcode.app/Contents/Developer/Extras/CoreAudio/AudioUnits/AUPublic/AUBase"
-            -I "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AudioUnit.framework/Headers"
-            -isysroot "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
+            -I "${CMAKE_OSX_SYSROOT}/System/Library/Frameworks/AudioUnit.framework/Headers"
+            -isysroot "${CMAKE_OSX_SYSROOT}"
             "${au_rez_sources}"
             -useDF
             -o "${au_rez_output}"
@@ -867,6 +866,11 @@ function(juce_add_binary_data target)
     target_include_directories(${target} INTERFACE ${juce_binary_data_folder})
     target_compile_features(${target} PRIVATE cxx_std_11)
 
+    # This fixes an issue where Xcode is unable to find binary data during archive.
+    if(CMAKE_GENERATOR STREQUAL "Xcode")
+        set_target_properties(${target} PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "./")
+    endif()
+
     if(JUCE_ARG_HEADER_NAME STREQUAL "BinaryData.h")
         target_compile_definitions(${target} INTERFACE JUCE_TARGET_HAS_BINARY_DATA=1)
     endif()
@@ -1142,6 +1146,26 @@ function(_juce_configure_bundle source_target dest_target)
         set_target_properties(${dest_target} PROPERTIES
             XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER
                 $<TARGET_PROPERTY:${source_target},JUCE_BUNDLE_ID>)
+    endif()
+
+    if(CMAKE_GENERATOR STREQUAL "Xcode")
+        get_target_property(product_name ${source_target} JUCE_PRODUCT_NAME)
+
+        set(install_path "$(LOCAL_APPS_DIR)")
+
+        if(juce_kind_string STREQUAL "AUv3 AppExtension")
+            set(install_path "${install_path}/${product_name}.app")
+
+            if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+                set(install_path "${install_path}/PlugIns")
+            else()
+                set(install_path "${install_path}/Contents/PlugIns")
+            endif()
+        endif()
+
+        set_target_properties(${dest_target} PROPERTIES
+            XCODE_ATTRIBUTE_INSTALL_PATH "${install_path}"
+            XCODE_ATTRIBUTE_SKIP_INSTALL "NO")
     endif()
 endfunction()
 
