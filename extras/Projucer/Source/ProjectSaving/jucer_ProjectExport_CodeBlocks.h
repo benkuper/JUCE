@@ -47,7 +47,9 @@ public:
     static String getTargetFolderNameWindows()   { return "CodeBlocksWindows"; }
     static String getTargetFolderNameLinux()     { return "CodeBlocksLinux"; }
 
+    String getTargetPlatformName() const override { return isLinux() ? getTargetFolderNameLinux() : getTargetFolderNameWindows(); }
     //==============================================================================
+
     static CodeBlocksProjectExporter* createForSettings (Project& projectToUse, const ValueTree& settingsToUse)
     {
         // this will also import legacy jucer files where CodeBlocks only worked for Windows,

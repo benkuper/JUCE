@@ -75,6 +75,7 @@ public:
     static String getDisplayName()        { return "Android"; }
     static String getValueTreeTypeName()  { return "ANDROIDSTUDIO"; }
     static String getTargetFolderName()   { return "Android"; }
+    String getTargetPlatformName() const override { return getTargetFolderName(); }
 
     static const char* getDefaultActivityClass()     { return "com.rmsl.juce.JuceActivity"; }
     static const char* getDefaultApplicationClass()  { return "com.rmsl.juce.JuceApp"; }

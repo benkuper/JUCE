@@ -378,6 +378,7 @@ public:
     static String getDisplayName()        { return "Linux Makefile"; }
     static String getValueTreeTypeName()  { return "LINUX_MAKE"; }
     static String getTargetFolderName()   { return "LinuxMakefile"; }
+    String getTargetPlatformName() const override { return getTargetFolderName(); }
 
     static MakefileProjectExporter* createForSettings (Project& projectToUse, const ValueTree& settingsToUse)
     {

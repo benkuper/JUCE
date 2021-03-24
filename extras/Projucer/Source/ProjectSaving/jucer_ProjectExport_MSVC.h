@@ -1762,7 +1762,8 @@ public:
 
     static String getDisplayName()        { return "Visual Studio 2015"; }
     static String getValueTreeTypeName()  { return "VS2015"; }
-    static String getTargetFolderName()   { return "VisualStudio2015"; }
+    static String getTargetFolderName()  { return "VisualStudio2015"; }
+    String getTargetPlatformName() const override { return getTargetFolderName(); }
 
     int getVisualStudioVersion() const override                      { return 14; }
     String getSolutionComment() const override                       { return "# Visual Studio 2015"; }
@@ -1806,6 +1807,7 @@ public:
     static String getDisplayName()        { return "Visual Studio 2017"; }
     static String getValueTreeTypeName()  { return "VS2017"; }
     static String getTargetFolderName()   { return "VisualStudio2017"; }
+    String getTargetPlatformName() const override { return getTargetFolderName(); }
 
     int getVisualStudioVersion() const override                      { return 15; }
     String getSolutionComment() const override                       { return "# Visual Studio 2017"; }
@@ -1849,6 +1851,7 @@ public:
     static String getDisplayName()        { return "Visual Studio 2019"; }
     static String getValueTreeTypeName()  { return "VS2019"; }
     static String getTargetFolderName()   { return "VisualStudio2019"; }
+    String getTargetPlatformName() const override { return getTargetFolderName(); }
 
     int getVisualStudioVersion() const override                      { return 16; }
     String getSolutionComment() const override                       { return "# Visual Studio 2019"; }

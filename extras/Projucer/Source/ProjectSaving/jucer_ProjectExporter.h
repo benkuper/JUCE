@@ -125,6 +125,7 @@ public:
     //==============================================================================
     String getUniqueName() const;
     File getTargetFolder() const;
+    virtual String getTargetPlatformName() const { return ""; }
 
     Project& getProject() noexcept                        { return project; }
     const Project& getProject() const noexcept            { return project; }
