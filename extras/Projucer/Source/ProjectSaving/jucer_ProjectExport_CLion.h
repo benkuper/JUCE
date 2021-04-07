@@ -58,6 +58,8 @@ public:
     static String getTargetFolderName()   { return "CLion"; }
     String getTargetPlatformName() const override { return getTargetFolderName(); }
 
+    Identifier getExporterIdentifier() const override { return getValueTreeTypeName(); }
+
     static CLionProjectExporter* createForSettings (Project& projectToUse, const ValueTree& settingsToUse)
     {
         if (settingsToUse.hasType (getValueTreeTypeName()))
@@ -111,7 +113,7 @@ public:
         static Identifier exporterName (XcodeProjectExporter::getValueTreeTypeNameMac());
        #elif JUCE_WINDOWS
         static Identifier exporterName (CodeBlocksProjectExporter::getValueTreeTypeNameWindows());
-       #elif JUCE_LINUX
+       #elif JUCE_LINUX || JUCE_BSD
         static Identifier exporterName (MakefileProjectExporter::getValueTreeTypeName());
        #else
         static Identifier exporterName;

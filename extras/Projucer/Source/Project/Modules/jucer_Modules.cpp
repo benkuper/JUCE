@@ -61,7 +61,10 @@ void LibraryModule::addSearchPathsToExporter (ProjectExporter& exporter) const
 
     exporter.addToExtraSearchPaths (moduleRelativePath.getParentDirectory());
 
-    String libDirPlatform;
+    const auto libDirPlatform = [&]() -> String
+    {
+        if (exporter.isLinux())
+            return "Linux";
 
     if (exporter.isLinux())
         libDirPlatform = "Linux";
@@ -69,6 +72,9 @@ void LibraryModule::addSearchPathsToExporter (ProjectExporter& exporter) const
         libDirPlatform = "MinGW";
     else
         libDirPlatform = exporter.getTargetPlatformName();
+
+        return exporter.getTypeInfoForExporter (exporter.getExporterIdentifier()).targetFolder;
+    }();
 
     auto libSubdirPath = moduleRelativePath.toUnixStyle() + "/libs/" + libDirPlatform;
     auto moduleLibDir = File (exporter.getProject().getProjectFolder().getFullPathName() + "/" + libSubdirPath);

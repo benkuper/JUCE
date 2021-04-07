@@ -380,6 +380,8 @@ public:
     static String getTargetFolderName()   { return "LinuxMakefile"; }
     String getTargetPlatformName() const override { return getTargetFolderName(); }
 
+    Identifier getExporterIdentifier() const override { return getValueTreeTypeName(); }
+
     static MakefileProjectExporter* createForSettings (Project& projectToUse, const ValueTree& settingsToUse)
     {
         if (settingsToUse.hasType (getValueTreeTypeName()))
