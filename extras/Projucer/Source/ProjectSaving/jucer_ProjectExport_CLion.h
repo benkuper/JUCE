@@ -56,6 +56,7 @@ public:
     static String getDisplayName()        { return "CLion [Deprecated]"; }
     static String getValueTreeTypeName()  { return "CLION"; }
     static String getTargetFolderName()   { return "CLion"; }
+    String getTargetPlatformName() const override { return getTargetFolderName(); }
 
     Identifier getExporterIdentifier() const override { return getValueTreeTypeName(); }
 

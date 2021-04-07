@@ -128,6 +128,8 @@ public:
     static String getValueTreeTypeNameMac()  { return "XCODE_MAC"; }
     static String getValueTreeTypeNameiOS()  { return "XCODE_IPHONE"; }
 
+    String getTargetPlatformName() const override { return isiOS() ? getTargetFolderNameiOS() : getTargetFolderNameMac(); }
+
     //==============================================================================
     XcodeProjectExporter (Project& p, const ValueTree& t, const bool isIOS)
         : ProjectExporter (p, t),

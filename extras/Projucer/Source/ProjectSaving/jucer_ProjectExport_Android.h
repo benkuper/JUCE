@@ -75,6 +75,7 @@ public:
     static String getDisplayName()        { return "Android"; }
     static String getValueTreeTypeName()  { return "ANDROIDSTUDIO"; }
     static String getTargetFolderName()   { return "Android"; }
+    String getTargetPlatformName() const override { return getTargetFolderName(); }
 
     Identifier getExporterIdentifier() const override { return getValueTreeTypeName(); }
 

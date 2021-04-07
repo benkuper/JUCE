@@ -49,12 +49,14 @@ namespace juce
 			*/
 #if JUCE_IP_AND_PORT_DETECTION
 			OSCInputStream(const void* sourceData, size_t sourceDataSize, const String& senderIPAddress, const int& senderPortNumber) :
-				senderIPAddress(senderIPAddress),
-				senderPortNumber(senderPortNumber),
+                input(sourceData, sourceDataSize, false),
+                senderIPAddress(senderIPAddress),
+				senderPortNumber(senderPortNumber)
 #else
 			OSCInputStream(const void* sourceData, size_t sourceDataSize) :
-#endif
+
 				input(sourceData, sourceDataSize, false)
+#endif
 			{}
 
 			//==============================================================================
