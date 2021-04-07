@@ -305,6 +305,11 @@ public:
     bool isOSX() const override                             { return ! iOS; }
     bool isiOS() const override                             { return iOS; }
 
+    Identifier getExporterIdentifier() const override
+    {
+        return iOS ? getValueTreeTypeNameiOS() : getValueTreeTypeNameMac();
+    }
+
     bool supportsPrecompiledHeaders() const override        { return true; }
 
     String getNewLineString() const override                { return "\n"; }
@@ -2762,7 +2767,7 @@ private:
                     if (val.isEmpty() || (val.containsAnyOf (" \t;<>()=,&+-@~\r\n\\#%^`*")
                                             && ! (val.trimStart().startsWithChar ('(')
                                                     || val.trimStart().startsWithChar ('{'))))
-                        val = val.quoted();
+                        val = "\"" + val + "\"";
 
                     auto content = propertyName.toString() + " = " + val + ";";
 
