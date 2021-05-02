@@ -812,7 +812,7 @@ public:
             info.flags = Vst::ParameterInfo::kIsProgramChange | Vst::ParameterInfo::kCanAutomate;
         }
 
-        virtual ~ProgramChangeParameter() override = default;
+        ~ProgramChangeParameter() override = default;
 
         bool setNormalized (Vst::ParamValue v) override
         {
@@ -1154,7 +1154,7 @@ public:
             const auto mayCreateEditor = pluginInstance->hasEditor()
                                       && name != nullptr
                                       && std::strcmp (name, Vst::ViewType::kEditor) == 0
-                                      && pluginInstance->getActiveEditor() == nullptr;
+                                      && (pluginInstance->getActiveEditor() == nullptr || getHostType().isAdobeAudition());
 
             if (mayCreateEditor)
                 return new JuceVST3Editor (*this, *pluginInstance);
