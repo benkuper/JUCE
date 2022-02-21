@@ -1398,6 +1398,17 @@ void Component::getInterceptsMouseClicks (bool& allowsClicksOnThisComponent,
     allowsClicksOnChildComponents = flags.allowChildMouseClicksFlag;
 }
 
+void Component::setDisableDefaultMouseEvents(bool value) noexcept
+{
+    flags.disableDefaultMouseEvents = value;
+}
+
+bool Component::getDisableDefaultMouseEvents() const noexcept
+{
+    return (bool)flags.disableDefaultMouseEvents;
+}
+
+
 bool Component::contains (Point<int> point)
 {
     return contains (point.toFloat());
@@ -2581,7 +2592,7 @@ void Component::internalMouseDrag (MouseInputSource source, const PointerState& 
                                         source.getLastMouseDownTime(),
                                         source.getNumberOfMultipleClicks(),
                                         source.isLongPressOrDrag());
-        if (!flags.disableDefaultMouseEvents) if(!flags.disableDefaultMouseEvents)  mouseDrag (me);
+        if (!flags.disableDefaultMouseEvents) mouseDrag (me);
 
         if (checker.shouldBailOut())
             return;
