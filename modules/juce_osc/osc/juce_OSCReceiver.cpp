@@ -181,24 +181,25 @@ namespace juce
 
 				return typeList;
 			}
-
 			//==============================================================================
-			OSCArgument readArgument(OSCType type)
-			{
-				switch (type)
-				{
+		OSCArgument readArgument(OSCType type)
+		{
+			switch (type)
+            {
+				case OSCTypes::I:			return OSCArgument();
+				case OSCTypes::T:			return OSCArgument(true);
+				case OSCTypes::F:			return OSCArgument(false);
 				case OSCTypes::int32:       return OSCArgument(readInt32());
 				case OSCTypes::float32:     return OSCArgument(readFloat32());
 				case OSCTypes::string:      return OSCArgument(readString());
 				case OSCTypes::blob:        return OSCArgument(readBlob());
 				case OSCTypes::colour:      return OSCArgument(readColour());
-
-				default:
-					// You supplied an invalid OSCType when calling readArgument! This should never happen.
-					jassertfalse;
-					throw OSCInternalError("OSC input stream: internal error while reading message argument");
-				}
-			}
+                default:
+                    // You supplied an invalid OSCType when calling readArgument! This should never happen.
+                    jassertfalse;
+                    throw OSCInternalError ("OSC input stream: internal error while reading message argument");
+            }
+        }
 
 			//==============================================================================
 			OSCMessage readMessage()
