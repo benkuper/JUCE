@@ -908,6 +908,7 @@ namespace TextEditorDefs
     const int returnKeyMessageId  = 0x10003002;
     const int escapeKeyMessageId  = 0x10003003;
     const int focusLossMessageId  = 0x10003004;
+    const int shiftReturnKeyMessageId  = 0x10003005;
 
     const int maxActionsPerTransaction = 100;
 
@@ -1033,6 +1034,11 @@ bool TextEditor::isTextInputActive() const
 void TextEditor::setReturnKeyStartsNewLine (bool shouldStartNewLine)
 {
     returnKeyStartsNewLine = shouldStartNewLine;
+}
+
+void TextEditor::setShiftReturnKeyStartsNewLine(bool shouldStartNewLine)
+{
+    shiftReturnKeyStartsNewLine = shouldStartNewLine;
 }
 
 void TextEditor::setTabKeyUsedAsCharacter (bool shouldTabKeyBeUsed)
@@ -1302,7 +1308,8 @@ void TextEditor::setSelection (Range<int> newSelection) noexcept
     }
 }
 
-void TextEditor::returnPressed()    { postCommandMessage (TextEditorDefs::returnKeyMessageId); }
+void TextEditor::returnPressed() { postCommandMessage(TextEditorDefs::returnKeyMessageId); }
+void TextEditor::shiftReturnPressed()    { postCommandMessage (TextEditorDefs::shiftReturnKeyMessageId); }
 void TextEditor::escapePressed()    { postCommandMessage (TextEditorDefs::escapeKeyMessageId); }
 
 void TextEditor::addListener (Listener* l)      { listeners.add (l); }
@@ -2129,17 +2136,23 @@ bool TextEditor::keyPressed (const KeyPress& key)
 
     if (! TextEditorKeyMapper<TextEditor>::invokeKeyFunction (*this, key))
     {
-        if (key == KeyPress::returnKey)
+        if (key.isKeyCode(KeyPress::returnKey))
         {
             newTransaction();
 
-            if (returnKeyStartsNewLine)
+            bool isShiftDown = key.getModifiers().isShiftDown();
+            if (returnKeyStartsNewLine && !isShiftDown)
             {
                 insertTextAtCaret ("\n");
             }
-            else
+            else if (shiftReturnKeyStartsNewLine && isShiftDown)
             {
-                returnPressed();
+                insertTextAtCaret("\n");
+            }else
+            {
+                if (isShiftDown) shiftReturnPressed();
+                else returnPressed();
+
                 return consumeEscAndReturnKeys;
             }
         }
@@ -2256,6 +2269,14 @@ void TextEditor::handleCommandMessage (const int commandId)
 
         if (! checker.shouldBailOut() && onReturnKey != nullptr)
             onReturnKey();
+
+        break;
+
+    case TextEditorDefs::shiftReturnKeyMessageId:
+        listeners.callChecked(checker, [this](Listener& l) { l.textEditorShiftReturnKeyPressed(*this); });
+
+        if (!checker.shouldBailOut() && onReturnKey != nullptr)
+            onShiftReturnKey();
 
         break;
 

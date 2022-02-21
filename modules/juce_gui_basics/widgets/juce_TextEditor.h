@@ -91,10 +91,24 @@ public:
     */
     void setReturnKeyStartsNewLine (bool shouldStartNewLine);
 
+    /** Changes the behaviour of the return key.
+
+        If set to true, the shift + return key combination will insert a new-line into the text; if false
+        it will trigger a call to the TextEditor::Listener::textEditorShiftReturnKeyPressed()
+        method. By default this is set to false, and when true it will only insert
+        new-lines when in multi-line mode (see setMultiLine()).
+    */
+    void setShiftReturnKeyStartsNewLine(bool shouldStartNewLine);
+
     /** Returns the value set by setReturnKeyStartsNewLine().
         See setReturnKeyStartsNewLine() for more info.
     */
-    bool getReturnKeyStartsNewLine() const                      { return returnKeyStartsNewLine; }
+    bool getReturnKeyStartsNewLine() const { return returnKeyStartsNewLine; }
+   
+    /** Returns the value set by setShiftReturnKeyStartsNewLine().
+        See setShiftReturnKeyStartsNewLine() for more info.
+    */
+    bool getShiftReturnKeyStartsNewLine() const { return shiftReturnKeyStartsNewLine; }
 
     /** Indicates whether the tab key should be accepted and used to input a tab character,
         or whether it gets ignored.
@@ -323,6 +337,9 @@ public:
         /** Called when the user presses the return key. */
         virtual void textEditorReturnKeyPressed (TextEditor&) {}
 
+        /** Called when the user presses the return key. */
+        virtual void textEditorShiftReturnKeyPressed(TextEditor&) {}
+
         /** Called when the user presses the escape key. */
         virtual void textEditorEscapeKeyPressed (TextEditor&) {}
 
@@ -346,6 +363,9 @@ public:
 
     /** You can assign a lambda to this callback object to have it called when the return key is pressed. */
     std::function<void()> onReturnKey;
+
+    /** You can assign a lambda to this callback object to have it called when the return key is pressed. */
+    std::function<void()> onShiftReturnKey;
 
     /** You can assign a lambda to this callback object to have it called when the escape key is pressed. */
     std::function<void()> onEscapeKey;
@@ -733,6 +753,9 @@ protected:
     /** Can be overridden to intercept return key presses directly */
     virtual void returnPressed();
 
+    /** Can be overridden to intercept return key presses directly */
+    virtual void shiftReturnPressed();
+
     /** Can be overridden to intercept escape key presses directly */
     virtual void escapePressed();
 
@@ -755,6 +778,7 @@ private:
     bool multiline = false;
     bool wordWrap = false;
     bool returnKeyStartsNewLine = false;
+    bool shiftReturnKeyStartsNewLine = false;
     bool popupMenuEnabled = true;
     bool selectAllTextWhenFocused = false;
     bool scrollbarVisible = true;
