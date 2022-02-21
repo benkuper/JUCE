@@ -292,7 +292,7 @@ public:
         never,          /**< Dragging will never scroll the viewport. */
         nonHover,       /**< Dragging will only scroll the viewport if the input source cannot hover. */
         all             /**< Dragging will always scroll the viewport. */
-    };
+	/** Enables or disables keypress events for this component.
 
     /** Sets the current scroll-on-drag mode. The default is ScrollOnDragMode::nonHover.
 
@@ -300,10 +300,10 @@ public:
         user is drag-scrolling, you can disable this with the Component::setViewportIgnoreDragFlag()
         method.
     */
-    void setScrollOnDragMode (ScrollOnDragMode scrollOnDragMode);
+	void setEnableKeyPressEvents(bool shouldEnabledKeypresses);
 
-    /** Returns the current scroll-on-drag mode. */
-    ScrollOnDragMode getScrollOnDragMode() const { return scrollOnDragMode; }
+	/** Returns true if keypresses events are enabled. */
+	bool keyPressEventsEnabled() const noexcept;
 
     /** Returns true if the user is currently dragging-to-scroll.
         @see setScrollOnDragEnabled
@@ -348,6 +348,7 @@ private:
     bool customScrollBarThickness = false;
     bool allowScrollingWithoutScrollbarV = false, allowScrollingWithoutScrollbarH = false;
     bool vScrollbarRight = true, hScrollbarBottom = true;
+	bool enableKeyPressEvents = true;
 
     struct DragToScrollListener;
     std::unique_ptr<DragToScrollListener> dragToScrollListener;
