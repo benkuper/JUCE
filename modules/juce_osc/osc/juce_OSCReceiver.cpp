@@ -179,14 +179,14 @@ namespace juce
 				auto bytesRead = (size_t)typeList.size() + 2;
 				readPaddingZeros(bytesRead);
 
+				return typeList;
+			}
+
 			//==============================================================================
-		OSCArgument readArgument(OSCType type)
-		{
-			switch (type)
-            {
-				case OSCTypes::I:			return OSCArgument();
-				case OSCTypes::T:			return OSCArgument(true);
-				case OSCTypes::F:			return OSCArgument(false);
+			OSCArgument readArgument(OSCType type)
+			{
+				switch (type)
+				{
 				case OSCTypes::int32:       return OSCArgument(readInt32());
 				case OSCTypes::float32:     return OSCArgument(readFloat32());
 				case OSCTypes::string:      return OSCArgument(readString());
