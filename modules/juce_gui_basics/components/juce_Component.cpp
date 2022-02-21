@@ -2392,7 +2392,7 @@ void Component::internalMouseEnter (MouseInputSource source, Point<float> relati
                                     time,
                                     0,
                                     false);
-    mouseEnter (me);
+    if(!flags.disableDefaultMouseEvents) mouseEnter (me);
 
     flags.cachedMouseInsideComponent = true;
 
@@ -2431,7 +2431,7 @@ void Component::internalMouseExit (MouseInputSource source, Point<float> relativ
                                     0,
                                     false);
 
-    mouseExit (me);
+    if (!flags.disableDefaultMouseEvents) mouseExit (me);
 
     if (checker.shouldBailOut())
         return;
@@ -2509,7 +2509,7 @@ void Component::internalMouseDown (MouseInputSource source, const PointerState& 
                                     time,
                                     source.getNumberOfMultipleClicks(),
                                     false);
-    mouseDown (me);
+    if (!flags.disableDefaultMouseEvents) mouseDown (me);
 
     if (checker.shouldBailOut())
         return;
@@ -2539,7 +2539,7 @@ void Component::internalMouseUp (MouseInputSource source, const PointerState& re
                                     source.getLastMouseDownTime(),
                                     source.getNumberOfMultipleClicks(),
                                     source.isLongPressOrDrag());
-    mouseUp (me);
+    if (!flags.disableDefaultMouseEvents) mouseUp (me);
 
     if (checker.shouldBailOut())
         return;
@@ -2581,7 +2581,7 @@ void Component::internalMouseDrag (MouseInputSource source, const PointerState& 
                                         source.getLastMouseDownTime(),
                                         source.getNumberOfMultipleClicks(),
                                         source.isLongPressOrDrag());
-        mouseDrag (me);
+        if (!flags.disableDefaultMouseEvents) if(!flags.disableDefaultMouseEvents)  mouseDrag (me);
 
         if (checker.shouldBailOut())
             return;
@@ -2615,7 +2615,7 @@ void Component::internalMouseMove (MouseInputSource source, Point<float> relativ
                                         time,
                                         0,
                                         false);
-        mouseMove (me);
+        if (!flags.disableDefaultMouseEvents)  mouseMove (me);
 
         if (checker.shouldBailOut())
             return;
@@ -2650,7 +2650,7 @@ void Component::internalMouseWheel (MouseInputSource source, Point<float> relati
     }
     else
     {
-        mouseWheelMove (me, wheel);
+        if (!flags.disableDefaultMouseEvents) mouseWheelMove (me, wheel);
 
         if (checker.shouldBailOut())
             return;
@@ -2686,7 +2686,7 @@ void Component::internalMagnifyGesture (MouseInputSource source, Point<float> re
     }
     else
     {
-        mouseMagnify (me, amount);
+        if (!flags.disableDefaultMouseEvents) mouseMagnify (me, amount);
 
         if (checker.shouldBailOut())
             return;
