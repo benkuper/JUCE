@@ -35,7 +35,7 @@
 
   ID:                 juce_osc
   vendor:             juce
-  version:            6.1.5
+  version:            6.1.4
   name:               JUCE OSC classes
   description:        Open Sound Control implementation.
   website:            http://www.juce.com/juce
@@ -54,6 +54,36 @@
 
 #include <juce_core/juce_core.h>
 #include <juce_events/juce_events.h>
+
+/** Config: JUCE_ALLOW_SPECIAL_CHARS_IN_ADDRESS
+	Enables the use of characters in adress that are not allowed by the OSC specifications (like spaces), but that are used
+	by some applications anyway (e.g. /my spaced/address)
+*/
+#ifndef JUCE_ALLOW_SPECIAL_CHARS_IN_ADDRESS
+#define JUCE_ALLOW_SPECIAL_CHARS_IN_ADDRESS 0
+#endif
+
+/** Config: JUCE_ENABLE_BROADCAST_BY_DEFAULT
+	Automatically enables broadcast on bound port in OSCReceiver
+*/
+#ifndef JUCE_ENABLE_BROADCAST_BY_DEFAULT
+#define JUCE_ENABLE_BROADCAST_BY_DEFAULT 0
+#endif
+
+/** Config: JUCE_EXCLUSIVE_BINDING_BY_DEFAULT
+	If enabled, this will make the binding of this port exclusive, so no other process can bind it.
+*/
+#ifndef JUCE_EXCLUSIVE_BINDING_BY_DEFAULT
+#define JUCE_EXCLUSIVE_BINDING_BY_DEFAULT 0
+#endif
+
+/** Config: JUCE_IP_AND_PORT_DETECTION
+	If enabled, this will add remoteIP and remotePort variables to osc packets, corresponding to the sender's ip and port when receiving messages.
+*/
+#ifndef JUCE_IP_AND_PORT_DETECTION
+#define JUCE_IP_AND_PORT_DETECTION 0
+#endif
+
 
 //==============================================================================
 #include "osc/juce_OSCTypes.h"
