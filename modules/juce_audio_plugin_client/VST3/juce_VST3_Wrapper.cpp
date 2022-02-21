@@ -582,7 +582,7 @@ private:
         cachedParamValues = CachedParamValues { { vstParamIDs.begin(), vstParamIDs.end() } };
     }
 
-    Vst::ParamID generateVSTParamIDForParam (AudioProcessorParameter* param)
+    Vst::ParamID generateVSTParamIDForParam (const AudioProcessorParameter* param)
     {
         auto juceParamID = LegacyAudioParameter::getParamID (param, false);
 
@@ -1579,7 +1579,7 @@ private:
                            Steinberg::IPlugView* viewIn)
             : processor (processorIn), editor (editorIn), componentHandler (handler), view (viewIn) {}
 
-        std::unique_ptr<HostProvidedContextMenu> getContextMenuForParameterIndex (const AudioProcessorParameter* parameter) const override
+        std::unique_ptr<HostProvidedContextMenu> getContextMenuForParameter (const AudioProcessorParameter* parameter) const override
         {
             if (componentHandler == nullptr || view == nullptr)
                 return {};
@@ -2214,7 +2214,7 @@ public:
 
        #ifdef JucePlugin_PreferredChannelConfigurations
         short configs[][2] = { JucePlugin_PreferredChannelConfigurations };
-        const int numConfigs = sizeof (configs) / sizeof (short[2]);
+        const int numConfigs = numElementsInArray (configs);
 
         ignoreUnused (numConfigs);
         jassert (numConfigs > 0 && (configs[0][0] > 0 || configs[0][1] > 0));
@@ -2370,10 +2370,10 @@ public:
     tresult PLUGIN_API getRoutingInfo (Vst::RoutingInfo&, Vst::RoutingInfo&) override   { return kNotImplemented; }
 
     //==============================================================================
-    bool isBypassed()
+    bool isBypassed() const
     {
         if (auto* bypassParam = comPluginInstance->getBypassParameter())
-            return (bypassParam->getValue() != 0.0f);
+            return bypassParam->getValue() >= 0.5f;
 
         return false;
     }
@@ -2763,7 +2763,7 @@ public:
 
       #ifdef JucePlugin_PreferredChannelConfigurations
         short configs[][2] = {JucePlugin_PreferredChannelConfigurations};
-        const int numConfigs = sizeof (configs) / sizeof (short[2]);
+        const int numConfigs = numElementsInArray (configs);
 
         bool hasOnlyZeroChannels = true;
 
@@ -3374,7 +3374,9 @@ private:
                 if (totalInputChans == pluginInstance->getTotalNumInputChannels()
                  && totalOutputChans == pluginInstance->getTotalNumOutputChannels())
                 {
-                    if (isBypassed())
+                    // processBlockBypassed should only ever be called if the AudioProcessor doesn't
+                    // return a valid parameter from getBypassParameter
+                    if (pluginInstance->getBypassParameter() == nullptr && comPluginInstance->getBypassParameter()->getValue() >= 0.5f)
                         pluginInstance->processBlockBypassed (buffer, midiBuffer);
                     else
                         pluginInstance->processBlock (buffer, midiBuffer);
@@ -3489,7 +3491,7 @@ private:
             ptr = {};
         }
 
-        T* operator->()               { return ptr.operator->(); }
+        T* operator->() const         { return ptr.operator->(); }
         T* get() const noexcept       { return ptr.get(); }
         operator T*() const noexcept  { return ptr.get(); }
 

@@ -318,6 +318,10 @@ function(_juce_write_configure_time_info target)
     _juce_append_target_property(file_content APP_SANDBOX_INHERIT                  ${target} JUCE_APP_SANDBOX_INHERIT)
     _juce_append_target_property(file_content HARDENED_RUNTIME_OPTIONS             ${target} JUCE_HARDENED_RUNTIME_OPTIONS)
     _juce_append_target_property(file_content APP_SANDBOX_OPTIONS                  ${target} JUCE_APP_SANDBOX_OPTIONS)
+    _juce_append_target_property(file_content APP_SANDBOX_FILE_ACCESS_HOME_RO      ${target} JUCE_APP_SANDBOX_FILE_ACCESS_HOME_RO)
+    _juce_append_target_property(file_content APP_SANDBOX_FILE_ACCESS_HOME_RW      ${target} JUCE_APP_SANDBOX_FILE_ACCESS_HOME_RW)
+    _juce_append_target_property(file_content APP_SANDBOX_FILE_ACCESS_ABS_RO       ${target} JUCE_APP_SANDBOX_FILE_ACCESS_ABS_RO)
+    _juce_append_target_property(file_content APP_SANDBOX_FILE_ACCESS_ABS_RW       ${target} JUCE_APP_SANDBOX_FILE_ACCESS_ABS_RW)
     _juce_append_target_property(file_content APP_GROUPS_ENABLED                   ${target} JUCE_APP_GROUPS_ENABLED)
     _juce_append_target_property(file_content APP_GROUP_IDS                        ${target} JUCE_APP_GROUP_IDS)
     _juce_append_target_property(file_content IS_PLUGIN                            ${target} JUCE_IS_PLUGIN)
@@ -451,7 +455,7 @@ function(_juce_to_char_literal str out_var help_text)
     string(LENGTH "${str}" string_length)
 
     if(NOT "${string_length}" EQUAL "4")
-        message(FATAL_ERROR "The ${help_text} code must contain exactly four characters, but it was set to '${str}'")
+        message(WARNING "The ${help_text} code must contain exactly four characters, but it was set to '${str}'")
     endif()
 
     # Round-tripping through a file is the simplest way to convert a string to hex...
@@ -463,7 +467,8 @@ function(_juce_to_char_literal str out_var help_text)
     file(READ "${scratch_file}" four_chars_hex HEX)
     file(REMOVE "${scratch_file}")
 
-    set(${out_var} ${four_chars_hex} PARENT_SCOPE)
+    string(SUBSTRING "${four_chars_hex}00000000" 0 8 four_chars_hex)
+    set(${out_var} "${four_chars_hex}" PARENT_SCOPE)
 endfunction()
 
 # ==================================================================================================
@@ -855,7 +860,15 @@ function(juce_enable_copy_plugin_step shared_code_target)
         get_target_property(source "${target}" JUCE_PLUGIN_ARTEFACT_FILE)
 
         if(source)
-            get_target_property(dest   "${target}" JUCE_PLUGIN_COPY_DIR)
+            if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+                add_custom_command(TARGET ${target} POST_BUILD
+                    COMMAND "${CMAKE_COMMAND}"
+                        "-Dsrc=${source}"
+                        "-P" "${JUCE_CMAKE_UTILS_DIR}/checkBundleSigning.cmake"
+                    VERBATIM)
+            endif()
+
+            get_target_property(dest "${target}" JUCE_PLUGIN_COPY_DIR)
 
             if(dest)
                 _juce_copy_dir("${target}" "${source}" "$<GENEX_EVAL:${dest}>")
@@ -1537,6 +1550,10 @@ function(_juce_initialise_target target)
         VST3_CATEGORIES
         HARDENED_RUNTIME_OPTIONS
         APP_SANDBOX_OPTIONS
+        APP_SANDBOX_FILE_ACCESS_HOME_RO
+        APP_SANDBOX_FILE_ACCESS_HOME_RW
+        APP_SANDBOX_FILE_ACCESS_ABS_RO
+        APP_SANDBOX_FILE_ACCESS_ABS_RW
         DOCUMENT_EXTENSIONS
         AAX_CATEGORY
         IPHONE_SCREEN_ORIENTATIONS      # iOS only
