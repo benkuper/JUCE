@@ -1738,6 +1738,7 @@ namespace juce
                 setMethod("exp", Math_exp);              setMethod("pow", Math_pow);
                 setMethod("sqr", Math_sqr);              setMethod("sqrt", Math_sqrt);
                 setMethod("ceil", Math_ceil);             setMethod("floor", Math_floor);
+                setMethod("lerp", Math_lerp);
 
                 setProperty("PI", MathConstants<double>::pi);
                 setProperty("E", MathConstants<double>::euler);
@@ -1776,6 +1777,7 @@ namespace juce
             static var Math_sqrt(Args a) { return std::sqrt(getDouble(a, 0)); }
             static var Math_ceil(Args a) { return std::ceil(getDouble(a, 0)); }
             static var Math_floor(Args a) { return std::floor(getDouble(a, 0)); }
+            static var Math_lerp(Args a) { return jmap<double>(getDouble(a, 0), getDouble(a, 1), getDouble(a, 2)); }
 
             // We can't use the std namespace equivalents of these functions without breaking
             // compatibility with older versions of OS X.
