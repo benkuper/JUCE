@@ -535,6 +535,11 @@ public:
         }
     }
 
+    Label* getTextBox()
+    {
+        return valueBox.get();
+    }
+
     void setTextValueSuffix (const String& suffix)
     {
         if (textSuffix != suffix)
@@ -1483,7 +1488,7 @@ bool Slider::isTextBoxEditable() const noexcept                     { return pim
 void Slider::setTextBoxIsEditable (const bool shouldBeEditable)     { pimpl->setTextBoxIsEditable (shouldBeEditable); }
 void Slider::showTextBox()                                          { pimpl->showTextBox(); }
 void Slider::hideTextBox (bool discardCurrentEditorContents)        { pimpl->hideTextBox (discardCurrentEditorContents); }
-
+Label* Slider::getTextbox()                                         { return pimpl->getTextBox(); }
 void Slider::setChangeNotificationOnlyOnRelease (bool onlyNotifyOnRelease)
 {
     pimpl->sendChangeOnlyOnRelease = onlyNotifyOnRelease;
