@@ -2,15 +2,15 @@
   ==============================================================================
 
    This file is part of the JUCE library.
-   Copyright (c) 2020 - Raw Material Software Limited
+   Copyright (c) 2022 - Raw Material Software Limited
 
    JUCE is an open source library subject to commercial or open-source
    licensing.
 
-   By using JUCE, you agree to the terms of both the JUCE 6 End-User License
-   Agreement and JUCE Privacy Policy (both effective as of the 16th June 2020).
+   By using JUCE, you agree to the terms of both the JUCE 7 End-User License
+   Agreement and JUCE Privacy Policy.
 
-   End User License Agreement: www.juce.com/juce-6-licence
+   End User License Agreement: www.juce.com/juce-7-licence
    Privacy Policy: www.juce.com/juce-privacy-policy
 
    Or: You may also use this code under the terms of the GPL v3 (see
@@ -868,6 +868,12 @@ struct TextEditor::TextHolderComponent  : public Component,
 
     TextEditor& owner;
 
+private:
+    std::unique_ptr<AccessibilityHandler> createAccessibilityHandler() override
+    {
+        return createIgnoredAccessibilityHandler (*this);
+    }
+
     JUCE_DECLARE_NON_COPYABLE (TextHolderComponent)
 };
 
@@ -894,6 +900,11 @@ struct TextEditor::TextEditorViewport  : public Viewport
     }
 
 private:
+    std::unique_ptr<AccessibilityHandler> createAccessibilityHandler() override
+    {
+        return createIgnoredAccessibilityHandler (*this);
+    }
+
     TextEditor& owner;
     int lastWordWrapWidth = 0;
     bool reentrant = false;
@@ -934,13 +945,13 @@ TextEditor::TextEditor (const String& name, juce_wchar passwordChar)
 
     setWantsKeyboardFocus (true);
     recreateCaret();
+
+    juce::Desktop::getInstance().addGlobalMouseListener (this);
 }
 
 TextEditor::~TextEditor()
 {
-    if (wasFocused)
-        if (auto* peer = getPeer())
-            peer->dismissPendingTextInput();
+    juce::Desktop::getInstance().removeGlobalMouseListener (this);
 
     textValue.removeListener (textHolder);
     textValue.referTo (Value());
@@ -1018,7 +1029,15 @@ void TextEditor::setReadOnly (bool shouldBeReadOnly)
         readOnly = shouldBeReadOnly;
         enablementChanged();
         invalidateAccessibilityHandler();
+
+        if (auto* peer = getPeer())
+            peer->refreshTextInputTarget();
     }
+}
+
+void TextEditor::setClicksOutsideDismissVirtualKeyboard (bool newValue)
+{
+    clicksOutsideDismissVirtualKeyboard = newValue;
 }
 
 bool TextEditor::isReadOnly() const noexcept
@@ -1028,7 +1047,7 @@ bool TextEditor::isReadOnly() const noexcept
 
 bool TextEditor::isTextInputActive() const
 {
-    return ! isReadOnly();
+    return ! isReadOnly() && (! clicksOutsideDismissVirtualKeyboard || mouseDownInEditor);
 }
 
 void TextEditor::setReturnKeyStartsNewLine (bool shouldStartNewLine)
@@ -1216,6 +1235,7 @@ void TextEditor::clear()
     clearInternal (nullptr);
     checkLayout();
     undoManager.clearUndoHistory();
+    repaint();
 }
 
 void TextEditor::setText (const String& newText, bool sendTextChangeMessage)
@@ -1329,13 +1349,7 @@ void TextEditor::timerCallbackInt()
 void TextEditor::checkFocus()
 {
     if (! wasFocused && hasKeyboardFocus (false) && ! isCurrentlyBlockedByAnotherModalComponent())
-    {
         wasFocused = true;
-
-        if (auto* peer = getPeer())
-            if (! isReadOnly())
-                peer->textInputRequired (peer->globalToLocal (getScreenPosition()), *this);
-    }
 }
 
 void TextEditor::repaintText (Range<int> range)
@@ -1834,6 +1848,11 @@ void TextEditor::performPopupMenuAction (const int menuItemID)
 //==============================================================================
 void TextEditor::mouseDown (const MouseEvent& e)
 {
+    mouseDownInEditor = e.originalComponent == this;
+
+    if (! mouseDownInEditor)
+        return;
+
     beginDragAutoRepeat (100);
     newTransaction();
 
@@ -1845,7 +1864,7 @@ void TextEditor::mouseDown (const MouseEvent& e)
                          e.mods.isShiftDown());
 
             if (auto* peer = getPeer())
-                peer->dismissPendingTextInput();
+                peer->closeInputMethodContext();
         }
         else
         {
@@ -1872,6 +1891,9 @@ void TextEditor::mouseDown (const MouseEvent& e)
 
 void TextEditor::mouseDrag (const MouseEvent& e)
 {
+    if (! mouseDownInEditor)
+        return;
+
     if (wasFocused || ! selectAllTextWhenFocused)
         if (! (popupMenuEnabled && e.mods.isPopupMenu()))
             moveCaretTo (getTextIndexAt (e.x, e.y), true);
@@ -1879,6 +1901,9 @@ void TextEditor::mouseDrag (const MouseEvent& e)
 
 void TextEditor::mouseUp (const MouseEvent& e)
 {
+    if (! mouseDownInEditor)
+        return;
+
     newTransaction();
     textHolder->restartTimer();
 
@@ -1891,6 +1916,9 @@ void TextEditor::mouseUp (const MouseEvent& e)
 
 void TextEditor::mouseDoubleClick (const MouseEvent& e)
 {
+    if (! mouseDownInEditor)
+        return;
+
     int tokenEnd = getTextIndexAt (e.x, e.y);
     int tokenStart = 0;
 
@@ -1957,6 +1985,9 @@ void TextEditor::mouseDoubleClick (const MouseEvent& e)
 
 void TextEditor::mouseWheelMove (const MouseEvent& e, const MouseWheelDetails& wheel)
 {
+    if (! mouseDownInEditor)
+        return;
+
     if (! viewport->useMouseWheelMoveIfNeeded (e, wheel))
         Component::mouseWheelMove (e, wheel);
 }
@@ -1968,7 +1999,7 @@ bool TextEditor::moveCaretWithTransaction (const int newPos, const bool selectin
     moveCaretTo (newPos, selecting);
 
     if (auto* peer = getPeer())
-        peer->dismissPendingTextInput();
+        peer->closeInputMethodContext();
 
     return true;
 }
@@ -2226,9 +2257,6 @@ void TextEditor::focusLost (FocusChangeType)
     textHolder->stopTimer();
 
     underlinedSections.clear();
-
-    if (auto* peer = getPeer())
-        peer->dismissPendingTextInput();
 
     updateCaretPosition();
 
@@ -2689,10 +2717,10 @@ void TextEditor::coalesceSimilarSections()
 }
 
 //==============================================================================
-class TextEditorAccessibilityHandler  : public AccessibilityHandler
+class TextEditor::EditorAccessibilityHandler  : public AccessibilityHandler
 {
 public:
-    explicit TextEditorAccessibilityHandler (TextEditor& textEditorToWrap)
+    explicit EditorAccessibilityHandler (TextEditor& textEditorToWrap)
         : AccessibilityHandler (textEditorToWrap,
                                 textEditorToWrap.isReadOnly() ? AccessibilityRole::staticText : AccessibilityRole::editableText,
                                 {},
@@ -2720,10 +2748,20 @@ private:
 
         void setSelection (Range<int> r) override
         {
+            if (r == textEditor.getHighlightedRegion())
+                return;
+
             if (r.isEmpty())
+            {
                 textEditor.setCaretPosition (r.getStart());
+            }
             else
-                textEditor.setHighlightedRegion (r);
+            {
+                const auto cursorAtStart = r.getEnd() == textEditor.getHighlightedRegion().getStart()
+                                        || r.getEnd() == textEditor.getHighlightedRegion().getEnd();
+                textEditor.moveCaretTo (cursorAtStart ? r.getEnd() : r.getStart(), false);
+                textEditor.moveCaretTo (cursorAtStart ? r.getStart() : r.getEnd(), true);
+            }
         }
 
         String getText (Range<int> r) const override
@@ -2769,12 +2807,12 @@ private:
     TextEditor& textEditor;
 
     //==============================================================================
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TextEditorAccessibilityHandler)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EditorAccessibilityHandler)
 };
 
 std::unique_ptr<AccessibilityHandler> TextEditor::createAccessibilityHandler()
 {
-    return std::make_unique<TextEditorAccessibilityHandler> (*this);
+    return std::make_unique<EditorAccessibilityHandler> (*this);
 }
 
 } // namespace juce
