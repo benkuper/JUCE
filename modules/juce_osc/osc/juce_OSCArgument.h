@@ -49,6 +49,9 @@ public:
     /** Constructs an OSCArgument with type int32 and a given value. */
     OSCArgument (int32 value);
 
+    /** Constructs an OSCArgument with type int32 and a given value. */
+    OSCArgument(int64 value);
+
     /** Constructs an OSCArgument with type float32 and a given value. */
     OSCArgument (float value);
 
@@ -80,6 +83,9 @@ public:
     /** Returns whether the type of the OSCArgument is int32. */
     bool isInt32() const noexcept           { return type == OSCTypes::int32; }
 
+    /** Returns whether the type of the OSCArgument is int64. */
+    bool isInt64() const noexcept           { return type == OSCTypes::int64; }
+
     /** Returns whether the type of the OSCArgument is float. */
     bool isFloat32() const noexcept         { return type == OSCTypes::float32; }
 
@@ -101,6 +107,11 @@ public:
         If the type of the OSCArgument is not int32, the behaviour is undefined.
     */
     int32 getInt32() const noexcept;
+
+    /** Returns the value of the OSCArgument as an int64.
+    If the type of the OSCArgument is not int64, the behaviour is undefined.
+    */
+    int64 getInt64() const noexcept;
 
     /** Returns the value of the OSCArgument as a float32.
         If the type of the OSCArgument is not float32, the behaviour is undefined.
@@ -134,6 +145,7 @@ private:
         float floatValue;
     };
 
+    int64 int64Value;
     String stringValue;
     MemoryBlock blob;
 };

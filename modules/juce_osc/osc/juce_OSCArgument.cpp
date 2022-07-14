@@ -26,9 +26,10 @@
 namespace juce
 {
 
-OSCArgument::OSCArgument()                      : type(OSCTypes::I) {}
-OSCArgument::OSCArgument(bool v)                : type (v?OSCTypes::T:OSCTypes::F)               {}
-OSCArgument::OSCArgument (int32 v)              : type (OSCTypes::int32),           intValue (v) {}
+OSCArgument::OSCArgument()                      : type(OSCTypes::I)                 {}
+OSCArgument::OSCArgument(bool v)                : type (v?OSCTypes::T:OSCTypes::F)  {}
+OSCArgument::OSCArgument(int32 v)               : type(OSCTypes::int32),            intValue(v) {}
+OSCArgument::OSCArgument (int64 v)              : type (OSCTypes::int64),           int64Value (v) {}
 OSCArgument::OSCArgument (float v)              : type (OSCTypes::float32),         floatValue (v) {}
 OSCArgument::OSCArgument (const String& s)      : type (OSCTypes::string),          stringValue (s) {}
 OSCArgument::OSCArgument (MemoryBlock b)        : type (OSCTypes::blob),            blob (std::move (b)) {}
@@ -57,6 +58,15 @@ int32 OSCArgument::getInt32() const noexcept
 {
     if (isInt32())
         return intValue;
+
+    jassertfalse; // you must check the type of an argument before attempting to get its value!
+    return 0;
+}
+
+int64 OSCArgument::getInt64() const noexcept
+{
+    if (isInt64())
+        return int64Value;
 
     jassertfalse; // you must check the type of an argument before attempting to get its value!
     return 0;

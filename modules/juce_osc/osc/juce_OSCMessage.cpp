@@ -111,7 +111,8 @@ void OSCMessage::clear()
 }
 
 //==============================================================================
-void OSCMessage::addInt32 (int32 value)             { arguments.add (OSCArgument (value)); }
+void OSCMessage::addInt32(int32 value)              { arguments.add(OSCArgument(value)); }
+void OSCMessage::addInt64 (int64 value)             { arguments.add (OSCArgument (value)); }
 void OSCMessage::addFloat32 (float value)           { arguments.add (OSCArgument (value)); }
 void OSCMessage::addString (const String& value)    { arguments.add (OSCArgument (value)); }
 void OSCMessage::addBlob (MemoryBlock blob)         { arguments.add (OSCArgument (std::move (blob))); }

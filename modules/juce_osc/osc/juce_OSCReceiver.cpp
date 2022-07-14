@@ -190,6 +190,7 @@ namespace juce
 				case OSCTypes::T:			return OSCArgument(true);
 				case OSCTypes::F:			return OSCArgument(false);
 				case OSCTypes::int32:       return OSCArgument(readInt32());
+				case OSCTypes::int64:       return OSCArgument(int64(readUint64()));
 				case OSCTypes::float32:     return OSCArgument(readFloat32());
 				case OSCTypes::string:      return OSCArgument(readString());
 				case OSCTypes::blob:        return OSCArgument(readBlob());

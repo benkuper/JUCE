@@ -50,6 +50,7 @@ public:
     static const OSCType F;
     static const OSCType I;
     static const OSCType int32;
+    static const OSCType int64;
     static const OSCType float32;
     static const OSCType string;
     static const OSCType blob;
@@ -61,6 +62,7 @@ public:
             || type == OSCTypes::F
             || type == OSCTypes::I
             || type == OSCTypes::int32
+            || type == OSCTypes::int64
             || type == OSCTypes::float32
             || type == OSCTypes::string
             || type == OSCTypes::blob
