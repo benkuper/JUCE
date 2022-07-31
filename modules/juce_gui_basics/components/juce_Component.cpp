@@ -2599,7 +2599,7 @@ void Component::internalMouseUp (MouseInputSource source, const PointerState& re
     // check for double-click
     if (me.getNumberOfClicks() >= 2)
     {
-        mouseDoubleClick (me);
+        if (!flags.disableDefaultMouseEvents) mouseDoubleClick (me);
 
         if (checker.shouldBailOut())
             return;
