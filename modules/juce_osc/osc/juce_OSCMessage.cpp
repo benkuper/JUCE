@@ -111,6 +111,7 @@ void OSCMessage::clear()
 }
 
 //==============================================================================
+void OSCMessage::addBool(bool value)                { arguments.add(OSCArgument(value)); }
 void OSCMessage::addInt32(int32 value)              { arguments.add(OSCArgument(value)); }
 void OSCMessage::addInt64 (int64 value)             { arguments.add (OSCArgument (value)); }
 void OSCMessage::addFloat32 (float value)           { arguments.add (OSCArgument (value)); }
