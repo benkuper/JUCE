@@ -375,9 +375,8 @@ struct VST3HostContext  : public Vst::IComponentHandler,  // From VST V3.0.0
     tresult PLUGIN_API setDirty (TBool) override;
 
     //==============================================================================
-    tresult PLUGIN_API requestOpenEditor (FIDString name) override
+    tresult PLUGIN_API requestOpenEditor ([[maybe_unused]] FIDString name) override
     {
-        ignoreUnused (name);
         jassertfalse;
         return kResultFalse;
     }
@@ -762,9 +761,9 @@ private:
             const auto iter = attributes.find (attr);
 
             if (iter != attributes.end())
-                iter->second = Attribute (std::move (value));
+                iter->second = Attribute (std::forward<Value> (value));
             else
-                attributes.emplace (attr, Attribute (std::move (value)));
+                attributes.emplace (attr, Attribute (std::forward<Value> (value)));
 
             return kResultTrue;
         }
@@ -1388,7 +1387,7 @@ static int compareWithString (Type (&charArray)[N], const String& str)
 }
 
 template <typename Callback>
-static void forEachARAFactory (IPluginFactory* pluginFactory, Callback&& cb)
+static void forEachARAFactory ([[maybe_unused]] IPluginFactory* pluginFactory, [[maybe_unused]] Callback&& cb)
 {
    #if JUCE_PLUGINHOST_ARA && (JUCE_MAC || JUCE_WINDOWS || JUCE_LINUX)
     const auto numClasses = pluginFactory->countClasses();
@@ -1404,12 +1403,11 @@ static void forEachARAFactory (IPluginFactory* pluginFactory, Callback&& cb)
                 break;
         }
     }
-   #else
-    ignoreUnused (pluginFactory, cb);
    #endif
 }
 
-static std::shared_ptr<const ARA::ARAFactory> getARAFactory (Steinberg::IPluginFactory* pluginFactory, const String& pluginName)
+static std::shared_ptr<const ARA::ARAFactory> getARAFactory ([[maybe_unused]] Steinberg::IPluginFactory* pluginFactory,
+                                                             [[maybe_unused]] const String& pluginName)
 {
     std::shared_ptr<const ARA::ARAFactory> factory;
 
@@ -1432,8 +1430,6 @@ static std::shared_ptr<const ARA::ARAFactory> getARAFactory (Steinberg::IPluginF
 
                            return true;
                        });
-   #else
-    ignoreUnused (pluginFactory, pluginName);
    #endif
 
     return factory;
@@ -1667,8 +1663,8 @@ private:
                 return;
             }
 
-            const auto attachedResult = view->attached ((void*) pluginHandle, defaultVST3WindowType);
-            ignoreUnused (warnOnFailure (attachedResult));
+            [[maybe_unused]] const auto attachedResult = view->attached ((void*) pluginHandle, defaultVST3WindowType);
+            [[maybe_unused]] const auto warning = warnOnFailure (attachedResult);
 
             if (attachedResult == kResultOk)
                 attachedCalled = true;
@@ -1689,11 +1685,10 @@ private:
     {
         if (scaleInterface != nullptr)
         {
-            const auto result = scaleInterface->setContentScaleFactor ((Steinberg::IPlugViewContentScaleSupport::ScaleFactor) getEffectiveScale());
-            ignoreUnused (result);
+            [[maybe_unused]] const auto result = scaleInterface->setContentScaleFactor ((Steinberg::IPlugViewContentScaleSupport::ScaleFactor) getEffectiveScale());
 
            #if ! JUCE_MAC
-            ignoreUnused (warnOnFailure (result));
+            [[maybe_unused]] const auto warning = warnOnFailure (result);
            #endif
         }
     }
@@ -1885,8 +1880,7 @@ struct VST3ComponentHolder
         if (classIdx >= 0)
         {
             PClassInfo info;
-            bool success = (factory->getClassInfo (classIdx, &info) == kResultOk);
-            ignoreUnused (success);
+            [[maybe_unused]] bool success = (factory->getClassInfo (classIdx, &info) == kResultOk);
             jassert (success);
 
             VSTComSmartPtr<IPluginFactory2> pf2;
@@ -2511,6 +2505,11 @@ public:
 
         using namespace Vst;
 
+        // If the plugin has already been activated (prepareToPlay has been called twice without
+        // a matching releaseResources call) deactivate it so that the speaker layout and bus
+        // activation can be updated safely.
+        deactivate();
+
         ProcessSetup setup;
         setup.symbolicSampleSize    = isUsingDoublePrecision() ? kSample64 : kSample32;
         setup.maxSamplesPerBlock    = estimatedSamplesPerBlock;
@@ -2565,19 +2564,7 @@ public:
     void releaseResources() override
     {
         const SpinLock::ScopedLockType lock (processMutex);
-
-        if (! isActive)
-            return; // Avoids redundantly calling things like setActive
-
-        isActive = false;
-
-        if (processor != nullptr)
-            warnOnFailureIfImplemented (processor->setProcessing (false));
-
-        if (holder->component != nullptr)
-            warnOnFailure (holder->component->setActive (false));
-
-        setStateForAllMidiBuses (false);
+        deactivate();
     }
 
     bool supportsDoublePrecisionProcessing() const override
@@ -3098,12 +3085,28 @@ public:
     }
 
     /** @note Not applicable to VST3 */
-    void setCurrentProgramStateInformation (const void* data, int sizeInBytes) override
+    void setCurrentProgramStateInformation ([[maybe_unused]] const void* data,
+                                            [[maybe_unused]] int sizeInBytes) override
     {
-        ignoreUnused (data, sizeInBytes);
     }
 
 private:
+    void deactivate()
+    {
+        if (! isActive)
+            return;
+
+        isActive = false;
+
+        if (processor != nullptr)
+            warnOnFailureIfImplemented (processor->setProcessing (false));
+
+        if (holder->component != nullptr)
+            warnOnFailure (holder->component->setActive (false));
+
+        setStateForAllMidiBuses (false);
+    }
+
     //==============================================================================
    #if JUCE_LINUX || JUCE_BSD
     SharedResourcePointer<RunLoop> runLoop;

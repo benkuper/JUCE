@@ -43,7 +43,8 @@ JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wnon-virtual-dtor",
                                      "-Wzero-as-null-pointer-constant",
                                      "-Winconsistent-missing-destructor-override",
                                      "-Wfour-char-constants",
-                                     "-Wtautological-overlap-compare")
+                                     "-Wtautological-overlap-compare",
+                                     "-Wdeprecated-declarations")
 
 #include <AAX_Version.h>
 
@@ -1139,7 +1140,7 @@ namespace AAXClasses
             }
 
             const auto effectiveRate = info.getFrameRate().hasValue() ? info.getFrameRate()->getEffectiveRate() : 0.0;
-            info.setEditOriginTime (effectiveRate != 0.0 ? makeOptional (offset / effectiveRate) : nullopt);
+            info.setEditOriginTime (makeOptional (effectiveRate != 0.0 ? offset / effectiveRate : offset));
 
             return info;
         }
@@ -1162,18 +1163,9 @@ namespace AAXClasses
 
             if (details.parameterInfoChanged)
             {
-                auto numParameters = juceParameters.getNumParameters();
-
-                for (int i = 0; i < numParameters; ++i)
-                {
-                    if (auto* p = mParameterManager.GetParameterByID (getAAXParamIDFromJuceIndex (i)))
-                    {
-                        auto newName = juceParameters.getParamForIndex (i)->getName (31);
-
-                        if (p->Name() != newName.toRawUTF8())
-                            p->SetName (AAX_CString (newName.toRawUTF8()));
-                    }
-                }
+                for (const auto* param : juceParameters)
+                    if (auto* aaxParam = mParameterManager.GetParameterByID (getAAXParamIDFromJuceIndex (param->getParameterIndex())))
+                        syncParameterAttributes (aaxParam, param);
             }
 
             if (details.latencyChanged)
@@ -1507,11 +1499,10 @@ namespace AAXClasses
         friend void AAX_CALLBACK AAXClasses::algorithmProcessCallback (JUCEAlgorithmContext* const instancesBegin[], const void* const instancesEnd);
 
         void process (float* const* channels, const int numChans, const int bufferSize,
-                      const bool bypass, AAX_IMIDINode* midiNodeIn, AAX_IMIDINode* midiNodesOut)
+                      const bool bypass, [[maybe_unused]] AAX_IMIDINode* midiNodeIn, [[maybe_unused]] AAX_IMIDINode* midiNodesOut)
         {
             AudioBuffer<float> buffer (channels, numChans, bufferSize);
             midiBuffer.clear();
-            ignoreUnused (midiNodeIn, midiNodesOut);
 
            #if JucePlugin_WantsMidiInput || JucePlugin_IsMidiEffect
             {
@@ -2064,6 +2055,40 @@ namespace AAXClasses
             return defaultLayout;
         }
 
+        void syncParameterAttributes (AAX_IParameter* aaxParam, const AudioProcessorParameter* juceParam)
+        {
+            if (juceParam == nullptr)
+                return;
+
+            {
+                auto newName = juceParam->getName (31);
+
+                if (aaxParam->Name() != newName.toRawUTF8())
+                    aaxParam->SetName (AAX_CString (newName.toRawUTF8()));
+            }
+
+            {
+                auto newType = juceParam->isDiscrete() ? AAX_eParameterType_Discrete : AAX_eParameterType_Continuous;
+
+                if (aaxParam->GetType() != newType)
+                    aaxParam->SetType (newType);
+            }
+
+            {
+                auto newNumSteps = static_cast<uint32_t> (juceParam->getNumSteps());
+
+                if (aaxParam->GetNumberOfSteps() != newNumSteps)
+                    aaxParam->SetNumberOfSteps (newNumSteps);
+            }
+
+            {
+                auto defaultValue = juceParam->getDefaultValue();
+
+                if (! approximatelyEqual (static_cast<float> (aaxParam->GetNormalizedDefaultValue()), defaultValue))
+                    aaxParam->SetNormalizedDefaultValue (defaultValue);
+            }
+        }
+
         //==============================================================================
         ScopedJuceInitialiser_GUI libraryInitialiser;
 
@@ -2365,7 +2390,7 @@ namespace AAXClasses
         return (AAX_STEM_FORMAT_INDEX (stemFormat) <= 12);
     }
 
-    static void getPlugInDescription (AAX_IEffectDescriptor& descriptor, const AAX_IFeatureInfo* featureInfo)
+    static void getPlugInDescription (AAX_IEffectDescriptor& descriptor, [[maybe_unused]] const AAX_IFeatureInfo* featureInfo)
     {
         PluginHostType::jucePlugInClientCurrentWrapperType = AudioProcessor::wrapperType_AAX;
         std::unique_ptr<AudioProcessor> plugin (createPluginFilterOfType (AudioProcessor::wrapperType_AAX));
@@ -2398,7 +2423,6 @@ namespace AAXClasses
        #if JucePlugin_IsMidiEffect
         // MIDI effect plug-ins do not support any audio channels
         jassert (numInputBuses == 0 && numOutputBuses == 0);
-        ignoreUnused (featureInfo);
 
         if (auto* desc = descriptor.NewComponentDescriptor())
         {

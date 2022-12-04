@@ -68,6 +68,7 @@ JUCE_BEGIN_IGNORE_WARNINGS_MSVC (4996 4100)
 JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wconversion",
                                      "-Wshadow",
                                      "-Wdeprecated-register",
+                                     "-Wdeprecated-declarations",
                                      "-Wunused-parameter",
                                      "-Wdeprecated-writable-strings",
                                      "-Wnon-virtual-dtor",
@@ -961,14 +962,12 @@ public:
                               , public Timer
                              #endif
     {
-        EditorCompWrapper (JuceVSTWrapper& w, AudioProcessorEditor& editor, float initialScale)
+        EditorCompWrapper (JuceVSTWrapper& w, AudioProcessorEditor& editor, [[maybe_unused]] float initialScale)
             : wrapper (w)
         {
             editor.setOpaque (true);
            #if ! JUCE_MAC
             editor.setScaleFactor (initialScale);
-           #else
-            ignoreUnused (initialScale);
            #endif
             addAndMakeVisible (editor);
 
@@ -1018,7 +1017,7 @@ public:
              // before that happens.
              X11Symbols::getInstance()->xFlush (display);
             #elif JUCE_WINDOWS && JUCE_WIN_PER_MONITOR_DPI_AWARE
-             checkHostWindowScaleFactor();
+             checkHostWindowScaleFactor (true);
              startTimer (500);
             #endif
            #elif JUCE_MAC
@@ -1222,12 +1221,12 @@ public:
         }
 
         #if JUCE_WIN_PER_MONITOR_DPI_AWARE
-         void checkHostWindowScaleFactor()
+         void checkHostWindowScaleFactor (bool force = false)
          {
              auto hostWindowScale = (float) getScaleFactorForWindow ((HostWindowType) hostWindow);
 
-             if (hostWindowScale > 0.0f && ! approximatelyEqual (hostWindowScale, wrapper.editorScaleFactor))
-                 wrapper.handleSetContentScaleFactor (hostWindowScale);
+             if (force || (hostWindowScale > 0.0f && ! approximatelyEqual (hostWindowScale, wrapper.editorScaleFactor)))
+                 wrapper.handleSetContentScaleFactor (hostWindowScale, force);
          }
 
          void timerCallback() override
@@ -1713,13 +1712,12 @@ private:
         return 0;
     }
 
-    pointer_sized_int handlePreAudioProcessingEvents (VstOpCodeArguments args)
+    pointer_sized_int handlePreAudioProcessingEvents ([[maybe_unused]] VstOpCodeArguments args)
     {
        #if JucePlugin_WantsMidiInput || JucePlugin_IsMidiEffect
         VSTMidiEventList::addEventsToMidiBuffer ((Vst2::VstEvents*) args.ptr, midiEvents);
         return 1;
        #else
-        ignoreUnused (args);
         return 0;
        #endif
     }
@@ -2012,7 +2010,7 @@ private:
         return 0;
     }
 
-    pointer_sized_int handleSetContentScaleFactor (float scale)
+    pointer_sized_int handleSetContentScaleFactor ([[maybe_unused]] float scale, [[maybe_unused]] bool force = false)
     {
         checkWhetherMessageThreadIsCorrect();
        #if JUCE_LINUX || JUCE_BSD
@@ -2022,16 +2020,13 @@ private:
        #endif
 
        #if ! JUCE_MAC
-        if (! approximatelyEqual (scale, editorScaleFactor))
+        if (force || ! approximatelyEqual (scale, editorScaleFactor))
         {
             editorScaleFactor = scale;
 
             if (editorComp != nullptr)
                 editorComp->setContentScaleFactor (editorScaleFactor);
         }
-
-       #else
-        ignoreUnused (scale);
        #endif
 
         return 1;

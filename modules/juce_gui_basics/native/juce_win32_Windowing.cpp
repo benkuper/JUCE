@@ -453,10 +453,9 @@ static bool isPerMonitorDPIAwareProcess()
    #endif
 }
 
-static bool isPerMonitorDPIAwareWindow (HWND nativeWindow)
+static bool isPerMonitorDPIAwareWindow ([[maybe_unused]] HWND nativeWindow)
 {
    #if ! JUCE_WIN_PER_MONITOR_DPI_AWARE
-    ignoreUnused (nativeWindow);
     return false;
    #else
     setDPIAwareness();
@@ -503,10 +502,8 @@ static double getGlobalDPI()
 class ScopedThreadDPIAwarenessSetter::NativeImpl
 {
 public:
-    explicit NativeImpl (HWND nativeWindow)
+    explicit NativeImpl (HWND nativeWindow [[maybe_unused]])
     {
-        ignoreUnused (nativeWindow);
-
        #if JUCE_WIN_PER_MONITOR_DPI_AWARE
         if (auto* functionSingleton = FunctionSingleton::getInstance())
         {
@@ -1113,6 +1110,13 @@ Image createSnapshotOfNativeWindow (void* nativeWindowHandle)
 //==============================================================================
 namespace IconConverters
 {
+    struct IconDestructor
+    {
+        void operator() (HICON ptr) const { if (ptr != nullptr) DestroyIcon (ptr); }
+    };
+
+    using IconPtr = std::unique_ptr<std::remove_pointer_t<HICON>, IconDestructor>;
+
     static Image createImageFromHICON (HICON icon)
     {
         if (icon == nullptr)
@@ -1381,10 +1385,7 @@ static HMONITOR getMonitorFromOutput (ComSmartPtr<IDXGIOutput> output)
         : desc.Monitor;
 }
 
-struct VBlankListener
-{
-    virtual void onVBlank() = 0;
-};
+using VBlankListener = ComponentPeer::VBlankListener;
 
 //==============================================================================
 class VSyncThread : private Thread,
@@ -1399,7 +1400,7 @@ public:
           monitor (mon)
     {
         listeners.push_back (listener);
-        startThread (10);
+        startThread (Priority::highest);
     }
 
     ~VSyncThread() override
@@ -1674,9 +1675,6 @@ public:
         currentTouches.deleteAllTouchesForPeer (this);
 
         callFunctionIfNotLocked (&destroyWindowCallback, (void*) hwnd);
-
-        if (currentWindowIcon != nullptr)
-            DestroyIcon (currentWindowIcon);
 
         if (dropTarget != nullptr)
         {
@@ -2072,6 +2070,7 @@ public:
     //==============================================================================
     void onVBlank() override
     {
+        vBlankListeners.call ([] (auto& l) { l.onVBlank(); });
         dispatchDeferredRepaints();
     }
 
@@ -2223,8 +2222,7 @@ public:
                 nameBuffer.clear();
                 nameBuffer.resize (bufferSize + 1, 0); // + 1 for the null terminator
 
-                const auto readCharacters = DragQueryFile (dropFiles, i, nameBuffer.data(), (UINT) nameBuffer.size());
-                ignoreUnused (readCharacters);
+                [[maybe_unused]] const auto readCharacters = DragQueryFile (dropFiles, i, nameBuffer.data(), (UINT) nameBuffer.size());
                 jassert (readCharacters == bufferSize);
 
                 dragInfo.files.add (String (nameBuffer.data()));
@@ -2315,7 +2313,7 @@ private:
     bool fullScreen = false, isDragging = false, isMouseOver = false,
          hasCreatedCaret = false, constrainerIsResizing = false;
     BorderSize<int> windowBorder;
-    HICON currentWindowIcon = nullptr;
+    IconConverters::IconPtr currentWindowIcon;
     FileDropTarget* dropTarget = nullptr;
     uint8 updateLayeredWindowAlpha = 255;
     UWPUIViewSettings uwpViewSettings;
@@ -2377,7 +2375,6 @@ private:
 
             TCHAR moduleFile[1024] = {};
             GetModuleFileName (moduleHandle, moduleFile, 1024);
-            WORD iconNum = 0;
 
             WNDCLASSEX wcex = {};
             wcex.cbSize         = sizeof (wcex);
@@ -2386,9 +2383,13 @@ private:
             wcex.lpszClassName  = windowClassName.toWideCharPointer();
             wcex.cbWndExtra     = 32;
             wcex.hInstance      = moduleHandle;
-            wcex.hIcon          = ExtractAssociatedIcon (moduleHandle, moduleFile, &iconNum);
-            iconNum = 1;
-            wcex.hIconSm        = ExtractAssociatedIcon (moduleHandle, moduleFile, &iconNum);
+
+            for (const auto& [index, field, ptr] : { std::tuple { 0, &wcex.hIcon,   &iconBig },
+                                                     std::tuple { 1, &wcex.hIconSm, &iconSmall } })
+            {
+                auto iconNum = static_cast<WORD> (index);
+                ptr->reset (*field = ExtractAssociatedIcon (moduleHandle, moduleFile, &iconNum));
+            }
 
             atom = RegisterClassEx (&wcex);
             jassert (atom != 0);
@@ -2482,6 +2483,8 @@ private:
 
             return false;
         }
+
+        IconConverters::IconPtr iconBig, iconSmall;
 
         JUCE_DECLARE_NON_COPYABLE (WindowClassHolder)
     };
@@ -2668,15 +2671,11 @@ private:
 
     void setIcon (const Image& newIcon) override
     {
-        if (auto hicon = IconConverters::createHICONFromImage (newIcon, TRUE, 0, 0))
+        if (IconConverters::IconPtr hicon { IconConverters::createHICONFromImage (newIcon, TRUE, 0, 0) })
         {
-            SendMessage (hwnd, WM_SETICON, ICON_BIG, (LPARAM) hicon);
-            SendMessage (hwnd, WM_SETICON, ICON_SMALL, (LPARAM) hicon);
-
-            if (currentWindowIcon != nullptr)
-                DestroyIcon (currentWindowIcon);
-
-            currentWindowIcon = hicon;
+            SendMessage (hwnd, WM_SETICON, ICON_BIG,   reinterpret_cast<LPARAM> (hicon.get()));
+            SendMessage (hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM> (hicon.get()));
+            currentWindowIcon = std::move (hicon);
         }
     }
 
@@ -2811,7 +2810,7 @@ private:
                 CombineRgn (rgn, rgn, clipRgn, RGN_AND);
                 DeleteObject (clipRgn);
 
-                std::aligned_storage<8192, alignof (RGNDATA)>::type rgnData;
+                std::aligned_storage_t<8192, alignof (RGNDATA)> rgnData;
                 const DWORD res = GetRegionData (rgn, sizeof (rgnData), (RGNDATA*) &rgnData);
 
                 if (res > 0 && res <= sizeof (rgnData))
@@ -2909,10 +2908,8 @@ private:
     }
    #endif
 
-    void setCurrentRenderingEngine (int index) override
+    void setCurrentRenderingEngine ([[maybe_unused]] int index) override
     {
-        ignoreUnused (index);
-
        #if JUCE_DIRECT2D
         if (getAvailableRenderingEngines().size() > 1)
         {
@@ -3481,7 +3478,7 @@ private:
                         const UINT keyChar  = MapVirtualKey ((UINT) key, 2);
                         const UINT scanCode = MapVirtualKey ((UINT) key, 0);
                         BYTE keyState[256];
-                        ignoreUnused (GetKeyboardState (keyState));
+                        [[maybe_unused]] const auto state = GetKeyboardState (keyState);
 
                         WCHAR text[16] = { 0 };
                         if (ToUnicode ((UINT) key, scanCode, keyState, text, 8, 0) != 1)
@@ -5367,27 +5364,23 @@ void Displays::findDisplays (float masterScale)
 }
 
 //==============================================================================
-static HICON extractFileHICON (const File& file)
+static auto extractFileHICON (const File& file)
 {
     WORD iconNum = 0;
     WCHAR name[MAX_PATH * 2];
     file.getFullPathName().copyToUTF16 (name, sizeof (name));
 
-    return ExtractAssociatedIcon ((HINSTANCE) Process::getCurrentModuleInstanceHandle(),
-                                  name, &iconNum);
+    return IconConverters::IconPtr { ExtractAssociatedIcon ((HINSTANCE) Process::getCurrentModuleInstanceHandle(),
+                                                            name,
+                                                            &iconNum) };
 }
 
 Image juce_createIconForFile (const File& file)
 {
-    Image image;
+    if (const auto icon = extractFileHICON (file))
+        return IconConverters::createImageFromHICON (icon.get());
 
-    if (auto icon = extractFileHICON (file))
-    {
-        image = IconConverters::createImageFromHICON (icon);
-        DestroyIcon (icon);
-    }
-
-    return image;
+    return {};
 }
 
 //==============================================================================
@@ -5435,12 +5428,6 @@ private:
     public:
         explicit ImageImpl (const CustomMouseCursorInfo& infoIn) : info (infoIn) {}
 
-        ~ImageImpl() override
-        {
-            for (auto& pair : cursorsBySize)
-                DestroyCursor (pair.second);
-        }
-
         HCURSOR getCursor (ComponentPeer& peer) override
         {
             JUCE_ASSERT_MESSAGE_THREAD;
@@ -5451,7 +5438,7 @@ private:
             const auto iter = cursorsBySize.find (size);
 
             if (iter != cursorsBySize.end())
-                return iter->second;
+                return iter->second.get();
 
             const auto logicalSize = info.image.getScaledBounds();
             const auto scale = (float) size / (float) unityCursorSize;
@@ -5466,12 +5453,19 @@ private:
             const auto hx = jlimit (0, rescaled.getWidth(),  roundToInt ((float) info.hotspot.x * effectiveScale));
             const auto hy = jlimit (0, rescaled.getHeight(), roundToInt ((float) info.hotspot.y * effectiveScale));
 
-            return cursorsBySize.emplace (size, IconConverters::createHICONFromImage (rescaled, false, hx, hy)).first->second;
+            return cursorsBySize.emplace (size, CursorPtr { IconConverters::createHICONFromImage (rescaled, false, hx, hy) }).first->second.get();
         }
 
     private:
+        struct CursorDestructor
+        {
+            void operator() (HCURSOR ptr) const { if (ptr != nullptr) DestroyCursor (ptr); }
+        };
+
+        using CursorPtr = std::unique_ptr<std::remove_pointer_t<HCURSOR>, CursorDestructor>;
+
         const CustomMouseCursorInfo info;
-        std::map<int, HCURSOR> cursorsBySize;
+        std::map<int, CursorPtr> cursorsBySize;
     };
 
     static auto getCursorSizeForPeerFunction() -> int (*) (ComponentPeer&)
