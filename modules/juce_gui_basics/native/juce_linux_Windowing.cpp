@@ -571,13 +571,12 @@ private:
     {
         if (auto* display = Desktop::getInstance().getDisplays().getDisplayForRect (bounds))
         {
-            if (display->verticalFrequencyHz)
-            {
-                const auto newIntFrequencyHz = roundToInt (*display->verticalFrequencyHz);
-
+            //if (display->verticalFrequencyHz)
+            //{
+                const auto newIntFrequencyHz = roundToInt(display->verticalFrequencyHz.value_or(100.0));
                 if (vBlankManager.getTimerInterval() != newIntFrequencyHz)
                     vBlankManager.startTimerHz (newIntFrequencyHz);
-            }
+            //}
         }
     }
 
