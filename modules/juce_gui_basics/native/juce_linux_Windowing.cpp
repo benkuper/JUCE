@@ -573,7 +573,9 @@ private:
         {
             //if (display->verticalFrequencyHz)
             //{
-                const auto newIntFrequencyHz = roundToInt(display->verticalFrequencyHz.value_or(100.0));
+                const auto newIntFrequencyHz = roundToInt(display->verticalFrequencyHz.value_or(60.0));
+                if (newIntFrequencyHz == 0) newIntFrequencyHz = 60;
+
                 if (vBlankManager.getTimerInterval() != newIntFrequencyHz)
                     vBlankManager.startTimerHz (newIntFrequencyHz);
             //}
