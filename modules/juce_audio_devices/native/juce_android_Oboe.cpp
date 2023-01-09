@@ -1251,7 +1251,12 @@ public:
             case 22:  return "USB headset";
             case 23:  return "hearing aid";
             case 24:  return "built-in speaker safe";
-            case 25:  return {};
+            case 25:  return "remote submix";
+            case 26:  return "BLE headset";
+            case 27:  return "BLE speaker";
+            case 28:  return "echo reference";
+            case 29:  return "HDMI eARC";
+            case 30:  return "BLE broadcast";
             default:  jassertfalse; return {}; // type not supported yet, needs to be added!
         }
     }
@@ -1410,20 +1415,22 @@ private:
 };
 
 //==============================================================================
-pthread_t juce_createRealtimeAudioThread (void* (*entry) (void*), void* userPtr);
-pthread_t juce_createRealtimeAudioThread (void* (*entry) (void*), void* userPtr)
+RealtimeThreadFactory getAndroidRealtimeThreadFactory()
 {
-    auto thread = std::make_unique<OboeRealtimeThread>();
+    return [] (void* (*entry) (void*), void* userPtr) -> pthread_t
+    {
+        auto thread = std::make_unique<OboeRealtimeThread>();
 
-    if (! thread->isOk())
-        return {};
+        if (! thread->isOk())
+            return {};
 
-    auto threadID = thread->startThread (entry, userPtr);
+        auto threadID = thread->startThread (entry, userPtr);
 
-    // the thread will de-allocate itself
-    thread.release();
+        // the thread will de-allocate itself
+        thread.release();
 
-    return threadID;
+        return threadID;
+    };
 }
 
 } // namespace juce

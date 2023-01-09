@@ -499,6 +499,31 @@ static double getGlobalDPI()
 }
 
 //==============================================================================
+class ScopedSuspendResumeNotificationRegistration
+{
+public:
+    ScopedSuspendResumeNotificationRegistration() = default;
+
+    explicit ScopedSuspendResumeNotificationRegistration (HWND window)
+        : handle (SystemStats::getOperatingSystemType() >= SystemStats::Windows8_0
+                      ? RegisterSuspendResumeNotification (window, DEVICE_NOTIFY_WINDOW_HANDLE)
+                      : nullptr)
+    {}
+
+private:
+    struct Destructor
+    {
+        void operator() (HPOWERNOTIFY ptr) const
+        {
+            if (ptr != nullptr)
+                UnregisterSuspendResumeNotification (ptr);
+        }
+    };
+
+    std::unique_ptr<std::remove_pointer_t<HPOWERNOTIFY>, Destructor> handle;
+};
+
+//==============================================================================
 class ScopedThreadDPIAwarenessSetter::NativeImpl
 {
 public:
@@ -1617,6 +1642,31 @@ private:
 JUCE_IMPLEMENT_SINGLETON (VBlankDispatcher)
 
 //==============================================================================
+class SimpleTimer  : private Timer
+{
+public:
+    SimpleTimer (int intervalMs, std::function<void()> callbackIn)
+        : callback (std::move (callbackIn))
+    {
+        jassert (callback);
+        startTimer (intervalMs);
+    }
+
+    ~SimpleTimer() override
+    {
+        stopTimer();
+    }
+
+private:
+    void timerCallback() override
+    {
+        callback();
+    }
+
+    std::function<void()> callback;
+};
+
+//==============================================================================
 class HWNDComponentPeer  : public ComponentPeer,
                            private VBlankListener,
                            private Timer
@@ -1657,12 +1707,18 @@ public:
             return ModifierKeys::currentModifiers;
         };
 
-        if (updateCurrentMonitor())
-            VBlankDispatcher::getInstance()->updateDisplay (*this, currentMonitor);
+        updateCurrentMonitorAndRefreshVBlankDispatcher();
+
+        if (parentToAddTo != nullptr)
+            monitorUpdateTimer.emplace (1000, [this] { updateCurrentMonitorAndRefreshVBlankDispatcher(); });
+
+        suspendResumeRegistration = ScopedSuspendResumeNotificationRegistration { hwnd };
     }
 
     ~HWNDComponentPeer() override
     {
+        suspendResumeRegistration = {};
+
         VBlankDispatcher::getInstance()->removeListener (*this);
 
         // do this first to avoid messages arriving for this window before it's destroyed
@@ -3646,10 +3702,18 @@ private:
         return 0;
     }
 
-    bool updateCurrentMonitor()
+    enum class ForceRefreshDispatcher
+    {
+        no,
+        yes
+    };
+
+    void updateCurrentMonitorAndRefreshVBlankDispatcher (ForceRefreshDispatcher force = ForceRefreshDispatcher::no)
     {
         auto monitor = MonitorFromWindow (hwnd, MONITOR_DEFAULTTONULL);
-        return std::exchange (currentMonitor, monitor) != monitor;
+
+        if (std::exchange (currentMonitor, monitor) != monitor || force == ForceRefreshDispatcher::yes)
+            VBlankDispatcher::getInstance()->updateDisplay (*this, currentMonitor);
     }
 
     bool handlePositionChanged()
@@ -3668,9 +3732,7 @@ private:
         }
 
         handleMovedOrResized();
-
-        if (updateCurrentMonitor())
-            VBlankDispatcher::getInstance()->updateDisplay (*this, currentMonitor);
+        updateCurrentMonitorAndRefreshVBlankDispatcher();
 
         return ! dontRepaint; // to allow non-accelerated openGL windows to draw themselves correctly.
     }
@@ -3828,8 +3890,7 @@ private:
 
         auto* dispatcher = VBlankDispatcher::getInstance();
         dispatcher->reconfigureDisplays();
-        updateCurrentMonitor();
-        dispatcher->updateDisplay (*this, currentMonitor);
+        updateCurrentMonitorAndRefreshVBlankDispatcher (ForceRefreshDispatcher::yes);
     }
 
     //==============================================================================
@@ -4595,6 +4656,8 @@ private:
     bool shouldIgnoreModalDismiss = false;
 
     RectangleList<int> deferredRepaints;
+    ScopedSuspendResumeNotificationRegistration suspendResumeRegistration;
+    std::optional<SimpleTimer> monitorUpdateTimer;
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (HWNDComponentPeer)

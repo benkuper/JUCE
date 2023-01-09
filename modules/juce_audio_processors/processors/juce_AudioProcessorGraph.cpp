@@ -498,6 +498,8 @@ struct GraphRenderSequence
         currentAudioInputBuffer = nullptr;
     }
 
+    JUCE_BEGIN_IGNORE_WARNINGS_MSVC (4661)
+
     void addClearChannelOp (int index)
     {
         renderOps.push_back ([=] (const Context& c)    { FloatVectorOperations::clear (c.audioBuffers[index], c.numSamples); });
@@ -512,6 +514,8 @@ struct GraphRenderSequence
     {
         renderOps.push_back ([=] (const Context& c)    { FloatVectorOperations::add (c.audioBuffers[dstIndex], c.audioBuffers[srcIndex], c.numSamples); });
     }
+
+    JUCE_END_IGNORE_WARNINGS_MSVC
 
     void addClearMidiBufferOp (int index)
     {
@@ -1405,7 +1409,7 @@ bool AudioProcessorGraph::Connection::operator< (const Connection& other) const 
 }
 
 //==============================================================================
-class AudioProcessorGraph::Pimpl : private AsyncUpdater
+class AudioProcessorGraph::Pimpl : public AsyncUpdater
 {
 public:
     explicit Pimpl (AudioProcessorGraph& o) : owner (&o) {}
@@ -1453,8 +1457,7 @@ public:
         if (lastNodeID < idToUse)
             lastNodeID = idToUse;
 
-        if (auto* ioProc = dynamic_cast<AudioGraphIOProcessor*> (added->getProcessor()))
-            ioProc->setParentGraph (owner);
+        setParentGraph (added->getProcessor());
 
         topologyChanged (updateKind);
         return added;
@@ -1606,6 +1609,12 @@ public:
     auto* getAudioThreadState() const { return renderSequenceExchange.getAudioThreadState(); }
 
 private:
+    void setParentGraph (AudioProcessor* p) const
+    {
+        if (auto* ioProc = dynamic_cast<AudioGraphIOProcessor*> (p))
+            ioProc->setParentGraph (owner);
+    }
+
     void topologyChanged (UpdateKind updateKind)
     {
         owner->sendChangeMessage();
@@ -1620,6 +1629,9 @@ private:
     {
         if (const auto newSettings = nodeStates.applySettings (nodes))
         {
+            for (const auto node : nodes.getNodes())
+                setParentGraph (node->getProcessor());
+
             auto sequence = std::make_unique<RenderSequence> (*newSettings, nodes, connections);
             owner->setLatencySamples (sequence->getLatencySamples());
             renderSequenceExchange.set (std::move (sequence));

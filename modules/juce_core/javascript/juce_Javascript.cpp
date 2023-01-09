@@ -1280,7 +1280,7 @@ namespace juce
             Expression* parseFunctionCall(FunctionCall* call, ExpPtr& function)
             {
                 std::unique_ptr<FunctionCall> s(call);
-                s->object.reset(function.release());
+                s->object = std::move(function);
                 match(TokenTypes::openParen);
 
                 while (currentType != TokenTypes::closeParen)
@@ -1306,7 +1306,7 @@ namespace juce
                 if (matchIf(TokenTypes::openBracket))
                 {
                     std::unique_ptr<ArraySubscript> s(new ArraySubscript(location));
-                    s->object.reset(input.release());
+                    s->object = std::move(input);
                     s->index.reset(parseExpression());
                     match(TokenTypes::closeBracket);
                     return parseSuffixes(s.release());
@@ -1515,7 +1515,7 @@ namespace juce
             Expression* parseTernaryOperator(ExpPtr& condition)
             {
                 std::unique_ptr<ConditionalOp> e(new ConditionalOp(location));
-                e->condition.reset(condition.release());
+                e->condition = std::move(condition);
                 e->trueBranch.reset(parseExpression());
                 match(TokenTypes::colon);
                 e->falseBranch.reset(parseExpression());
@@ -1542,7 +1542,7 @@ namespace juce
             }
 
             static Identifier getClassName() { static const Identifier i("Object"); return i; }
-            static var dump(Args a) { DBG(JSON::toString(a.thisObject)); ignoreUnused(a); return var::undefined(); }
+            static var dump([[maybe_unused]] Args a) { DBG(JSON::toString(a.thisObject)); return var::undefined(); }
             static var cloneFn(Args a) { return a.thisObject.clone(); }
         };
 
