@@ -2579,7 +2579,7 @@ namespace juce
     if (me.getNumberOfClicks() >= 2)
     {
         if (checker.nearestNonNullParent() == this)
-            mouseDoubleClick (checker.eventWithNearestParent());
+			if (!flags.disableDefaultMouseEvents) mouseDoubleClick (checker.eventWithNearestParent());
 
 			if (checker.shouldBailOut())
 				return;
