@@ -771,10 +771,16 @@ public:
                                            "Since JUCE 4.2, this is instead done using \"AU/VST/VST2/AAX Binary Location\" in the Xcode (OS X) configuration settings.\n\n"
                                            "Click 'Update' to remove the script (otherwise your plug-in may not compile correctly).";
 
-            if (AlertWindow::showOkCancelBox (MessageBoxIconType::WarningIcon,
-                                              "Project settings: " + project.getDocumentTitle(),
-                                              alertWindowText, "Update", "Cancel", nullptr, nullptr))
-                postbuildCommandValue.resetToDefault();
+            auto options = MessageBoxOptions::makeOptionsOkCancel (MessageBoxIconType::WarningIcon,
+                                                                   "Project settings: " + project.getDocumentTitle(),
+                                                                   alertWindowText,
+                                                                   "Update",
+                                                                   "Cancel");
+            messageBox = AlertWindow::showScopedAsync (options, [this] (int result)
+            {
+                if (result != 0)
+                    postbuildCommandValue.resetToDefault();
+            });
         }
     }
 
@@ -1316,7 +1322,9 @@ public:
 
             capabilities["ApplicationGroups.iOS"] = owner.iOS && owner.isAppGroupsEnabled();
             capabilities["InAppPurchase"]         = owner.isInAppPurchasesEnabled();
-            capabilities["InterAppAudio"]         = owner.iOS && type == Target::StandalonePlugIn && owner.getProject().shouldEnableIAA();
+            capabilities["InterAppAudio"]         = owner.iOS && ((type == Target::StandalonePlugIn
+                                                                   && owner.getProject().shouldEnableIAA())
+                                                                  || owner.getProject().isAUPluginHost());
             capabilities["Push"]                  = owner.isPushNotificationsEnabled();
             capabilities["Sandbox"]               = type == Target::AudioUnitv3PlugIn || owner.isAppSandboxEnabled();
             capabilities["HardenedRuntime"]       = owner.isHardenedRuntimeEnabled();
@@ -1377,7 +1385,8 @@ public:
              || owner.isAppSandboxEnabled()
              || owner.isHardenedRuntimeEnabled()
              || owner.isNetworkingMulticastEnabled()
-             || (owner.isiOS() && owner.isiCloudPermissionsEnabled()))
+             || (owner.isiOS() && owner.isiCloudPermissionsEnabled())
+             || (owner.isiOS() && owner.getProject().isAUPluginHost()))
                 return true;
 
             if (owner.project.isAudioPluginProject()
@@ -1715,8 +1724,8 @@ public:
             s.set ("COMBINE_HIDPI_IMAGES", "YES");
 
             {
-                StringArray linkerFlags, librarySearchPaths;
-                getLinkerSettings (config, linkerFlags, librarySearchPaths);
+                StringArray linkerFlags;
+                getLinkerSettings (config, linkerFlags);
 
                 for (const auto& weakFramework : owner.xcodeWeakFrameworks)
                     linkerFlags.add ("-weak_framework " + weakFramework);
@@ -1724,6 +1733,7 @@ public:
                 if (linkerFlags.size() > 0)
                     s.set ("OTHER_LDFLAGS", linkerFlags.joinIntoString (" ").quoted());
 
+                StringArray librarySearchPaths;
                 librarySearchPaths.addArray (config.getLibrarySearchPaths());
 
                 if (type == LV2PlugIn)
@@ -1816,23 +1826,13 @@ public:
         }
 
         //==============================================================================
-        void getLinkerSettings (const BuildConfiguration& config, StringArray& flags, StringArray& librarySearchPaths) const
+        void getLinkerSettings (const BuildConfiguration& config, StringArray& flags) const
         {
             if (getTargetFileType() == pluginBundle)
                 flags.add (owner.isiOS() ? "-bitcode_bundle" : "-bundle");
 
             if (type != Target::SharedCodeTarget && type != Target::LV2TurtleProgram)
             {
-                Array<build_tools::RelativePath> extraLibs;
-
-                addExtraLibsForTargetType (config, extraLibs);
-
-                for (auto& lib : extraLibs)
-                {
-                    flags.add (getLinkerFlagForLib (lib.getFileNameWithoutExtension()));
-                    librarySearchPaths.add (owner.getSearchPathForStaticLibrary (lib));
-                }
-
                 if (owner.project.isAudioPluginProject())
                 {
                     if (owner.getTargetOfType (Target::SharedCodeTarget) != nullptr)
@@ -2011,19 +2011,6 @@ public:
 
             if (owner.isOSX())
                 xcodeFrameworks.add ("AudioUnit");
-        }
-
-        void addExtraLibsForTargetType  (const BuildConfiguration& config, Array<build_tools::RelativePath>& extraLibs) const
-        {
-            if (type == AAXPlugIn)
-            {
-                auto aaxLibsFolder = build_tools::RelativePath (owner.getAAXPathString(), build_tools::RelativePath::projectFolder).getChildFile ("Libs");
-
-                String libraryPath (config.isDebug() ? "Debug" : "Release");
-                libraryPath += "/libAAXLibrary_libcpp.a";
-
-                extraLibs.add   (aaxLibsFolder.getChildFile (libraryPath));
-            }
         }
 
         //==============================================================================
@@ -3155,6 +3142,7 @@ private:
         options.isiOS                           = isiOS();
         options.isAudioPluginProject            = project.isAudioPluginProject();
         options.shouldEnableIAA                 = project.shouldEnableIAA();
+        options.isAUPluginHost                  = project.isAUPluginHost();
         options.isiCloudPermissionsEnabled      = isiCloudPermissionsEnabled();
         options.isPushNotificationsEnabled      = isPushNotificationsEnabled();
         options.isAppGroupsEnabled              = isAppGroupsEnabled();
@@ -3655,6 +3643,7 @@ private:
                                  iosContentSharingValue, iosBackgroundAudioValue, iosBackgroundBleValue, iosPushNotificationsValue, iosAppGroupsValue, iCloudPermissionsValue,
                                  networkingMulticastValue, iosDevelopmentTeamIDValue, iosAppGroupsIDValue, keepCustomXcodeSchemesValue, useHeaderMapValue, customLaunchStoryboardValue,
                                  exporterBundleIdentifierValue, suppressPlistResourceUsageValue, useLegacyBuildSystemValue, buildNumber;
+    ScopedMessageBox messageBox;
 
     struct SandboxFileAccessProperty
     {

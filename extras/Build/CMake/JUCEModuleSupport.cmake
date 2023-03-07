@@ -251,10 +251,13 @@ function(_juce_get_platform_plugin_kinds out)
     endif()
 
     if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS" AND NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
-        list(APPEND result Unity VST VST3 LV2)
+        list(APPEND result VST LV2)
+        if(NOT (CMAKE_SYSTEM_NAME MATCHES ".*BSD"))
+            list(APPEND result Unity VST3)
+        endif()
     endif()
 
-    if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    if((CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "Windows") AND NOT (CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
         list(APPEND result AAX)
     endif()
 

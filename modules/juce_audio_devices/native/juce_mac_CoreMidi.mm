@@ -71,10 +71,8 @@ namespace CoreMidiHelpers
     {
         virtual ~SenderBase() noexcept = default;
 
-        virtual void send (MIDIPortRef port, MIDIEndpointRef endpoint, const MidiMessage& m) = 0;
+        virtual void send (MIDIPortRef port, MIDIEndpointRef endpoint, const ump::BytestreamMidiView& m) = 0;
         virtual void send (MIDIPortRef port, MIDIEndpointRef endpoint, ump::Iterator b, ump::Iterator e) = 0;
-
-        virtual ump::MidiProtocol getProtocol() const noexcept = 0;
     };
 
     template <ImplementationStrategy>
@@ -84,11 +82,7 @@ namespace CoreMidiHelpers
     template <>
     struct API_AVAILABLE (macos (11.0), ios (14.0)) Sender<ImplementationStrategy::onlyNew> : public SenderBase
     {
-        explicit Sender (MIDIEndpointRef ep)
-            : umpConverter (getProtocolForEndpoint (ep))
-        {}
-
-        void send (MIDIPortRef port, MIDIEndpointRef endpoint, const MidiMessage& m) override
+        void send (MIDIPortRef port, MIDIEndpointRef endpoint, const ump::BytestreamMidiView& m) override
         {
             newSendImpl (port, endpoint, m);
         }
@@ -98,14 +92,8 @@ namespace CoreMidiHelpers
             newSendImpl (port, endpoint, b, e);
         }
 
-        ump::MidiProtocol getProtocol() const noexcept override
-        {
-            return umpConverter.getProtocol() == ump::PacketProtocol::MIDI_2_0 ? ump::MidiProtocol::UMP_MIDI_2_0
-                                                                               : ump::MidiProtocol::UMP_MIDI_1_0;
-        }
-
     private:
-        ump::GenericUMPConverter umpConverter;
+        ump::ToUMP1Converter umpConverter;
 
         static ump::PacketProtocol getProtocolForEndpoint (MIDIEndpointRef ep) noexcept
         {
@@ -119,9 +107,6 @@ namespace CoreMidiHelpers
         template <typename... Params>
         void newSendImpl (MIDIPortRef port, MIDIEndpointRef endpoint, Params&&... params)
         {
-            // The converter protocol got out-of-sync with the device protocol
-            jassert (getProtocolForEndpoint (endpoint) == umpConverter.getProtocol());
-
            #if JUCE_IOS
             const MIDITimeStamp timeStamp = mach_absolute_time();
            #else
@@ -133,9 +118,10 @@ namespace CoreMidiHelpers
 
             const auto init = [&]
             {
-                end = MIDIEventListInit (&stackList,
-                                         umpConverter.getProtocol() == ump::PacketProtocol::MIDI_2_0 ? kMIDIProtocol_2_0
-                                                                                                     : kMIDIProtocol_1_0);
+                // At the moment, we can only send MIDI 1.0 protocol. If the device is using MIDI
+                // 2.0 protocol (as may be the case for the IAC driver), we trust in the system to
+                // translate it.
+                end = MIDIEventListInit (&stackList, kMIDIProtocol_1_0);
             };
 
             const auto send = [&]
@@ -159,16 +145,19 @@ namespace CoreMidiHelpers
 
             init();
 
-            umpConverter.convert (params..., [&] (const ump::View& view)
+            ump::GenericUMPConverter::convertImpl (umpConverter, params..., [&] (const auto& v)
             {
-                add (view);
+                umpConverter.convert (v, [&] (const ump::View& view)
+                {
+                    add (view);
 
-                if (end != nullptr)
-                    return;
+                    if (end != nullptr)
+                        return;
 
-                send();
-                init();
-                add (view);
+                    send();
+                    init();
+                    add (view);
+                });
             });
 
             send();
@@ -180,9 +169,7 @@ namespace CoreMidiHelpers
     template <>
     struct Sender<ImplementationStrategy::onlyOld> : public SenderBase
     {
-        explicit Sender (MIDIEndpointRef) {}
-
-        void send (MIDIPortRef port, MIDIEndpointRef endpoint, const MidiMessage& m) override
+        void send (MIDIPortRef port, MIDIEndpointRef endpoint, const ump::BytestreamMidiView& m) override
         {
             oldSendImpl (port, endpoint, m);
         }
@@ -191,22 +178,17 @@ namespace CoreMidiHelpers
         {
             std::for_each (b, e, [&] (const ump::View& v)
             {
-                bytestreamConverter.convert (v, 0.0, [&] (const MidiMessage& m)
+                bytestreamConverter.convert (v, 0.0, [&] (const ump::BytestreamMidiView& m)
                 {
                     send (port, endpoint, m);
                 });
             });
         }
 
-        ump::MidiProtocol getProtocol() const noexcept override
-        {
-            return ump::MidiProtocol::bytestream;
-        }
-
     private:
         ump::ToBytestreamConverter bytestreamConverter { 2048 };
 
-        void oldSendImpl (MIDIPortRef port, MIDIEndpointRef endpoint, const MidiMessage& message)
+        void oldSendImpl (MIDIPortRef port, MIDIEndpointRef endpoint, const ump::BytestreamMidiView& message)
         {
            #if JUCE_IOS
             const MIDITimeStamp timeStamp = mach_absolute_time();
@@ -217,7 +199,7 @@ namespace CoreMidiHelpers
             HeapBlock<MIDIPacketList> allocatedPackets;
             MIDIPacketList stackPacket;
             auto* packetToSend = &stackPacket;
-            auto dataSize = (size_t) message.getRawDataSize();
+            auto dataSize = message.bytes.size();
 
             if (message.isSysEx())
             {
@@ -234,7 +216,7 @@ namespace CoreMidiHelpers
                 {
                     p->timeStamp = timeStamp;
                     p->length = (UInt16) jmin (maxPacketSize, bytesLeft);
-                    memcpy (p->data, message.getRawData() + pos, p->length);
+                    memcpy (p->data, message.bytes.data() + pos, p->length);
                     pos += p->length;
                     bytesLeft -= p->length;
                     p = MIDIPacketNext (p);
@@ -254,7 +236,7 @@ namespace CoreMidiHelpers
                 auto& p = *(packetToSend->packet);
                 p.timeStamp = timeStamp;
                 p.length = (UInt16) dataSize;
-                memcpy (p.data, message.getRawData(), dataSize);
+                memcpy (p.data, message.bytes.data(), dataSize);
             }
             else
             {
@@ -274,11 +256,11 @@ namespace CoreMidiHelpers
     template <>
     struct Sender<ImplementationStrategy::both>
     {
-        explicit Sender (MIDIEndpointRef ep)
-            : sender (makeImpl (ep))
+        Sender()
+            : sender (makeImpl())
         {}
 
-        void send (MIDIPortRef port, MIDIEndpointRef endpoint, const MidiMessage& m)
+        void send (MIDIPortRef port, MIDIEndpointRef endpoint, const ump::BytestreamMidiView& m)
         {
             sender->send (port, endpoint, m);
         }
@@ -288,18 +270,13 @@ namespace CoreMidiHelpers
             sender->send (port, endpoint, b, e);
         }
 
-        ump::MidiProtocol getProtocol() const noexcept
-        {
-            return sender->getProtocol();
-        }
-
     private:
-        static std::unique_ptr<SenderBase> makeImpl (MIDIEndpointRef ep)
+        static std::unique_ptr<SenderBase> makeImpl()
         {
             if (@available (macOS 11, iOS 14, *))
-                return std::make_unique<Sender<ImplementationStrategy::onlyNew>> (ep);
+                return std::make_unique<Sender<ImplementationStrategy::onlyNew>>();
 
-            return std::make_unique<Sender<ImplementationStrategy::onlyOld>> (ep);
+            return std::make_unique<Sender<ImplementationStrategy::onlyOld>>();
         }
 
         std::unique_ptr<SenderBase> sender;
@@ -369,7 +346,7 @@ namespace CoreMidiHelpers
     {
     public:
         MidiPortAndEndpoint (ScopedPortRef p, ScopedEndpointRef ep) noexcept
-            : port (std::move (p)), endpoint (std::move (ep)), sender (*endpoint)
+            : port (std::move (p)), endpoint (std::move (ep))
         {}
 
         ~MidiPortAndEndpoint() noexcept
@@ -379,7 +356,7 @@ namespace CoreMidiHelpers
                 endpoint.release();
         }
 
-        void send (const MidiMessage& m)
+        void send (const ump::BytestreamMidiView& m)
         {
             sender.send (*port, *endpoint, m);
         }
@@ -391,11 +368,6 @@ namespace CoreMidiHelpers
 
         bool canStop() const noexcept  { return *port != 0; }
         void stop() const              { CHECK_ERROR (MIDIPortDisconnectSource (*port, *endpoint)); }
-
-        ump::MidiProtocol getProtocol() const noexcept
-        {
-            return sender.getProtocol();
-        }
 
     private:
         ScopedPortRef port;
@@ -579,9 +551,10 @@ namespace CoreMidiHelpers
        #endif
     }
 
-    static void globalSystemChangeCallback (const MIDINotification*, void*)
+    static void globalSystemChangeCallback (const MIDINotification* notification, void*)
     {
-        // TODO.. Should pass-on this notification..
+        if (notification != nullptr && notification->messageID == kMIDIMsgSetupChanged)
+            MidiDeviceListConnectionBroadcaster::get().notify();
     }
 
     static String getGlobalMidiClientName()
@@ -594,9 +567,7 @@ namespace CoreMidiHelpers
 
     static MIDIClientRef getGlobalMidiClient()
     {
-        static MIDIClientRef globalMidiClient = 0;
-
-        if (globalMidiClient == 0)
+        static const auto globalMidiClient = [&]
         {
             // Since OSX 10.6, the MIDIClientCreate function will only work
             // correctly when called from the message thread!
@@ -605,8 +576,10 @@ namespace CoreMidiHelpers
             enableSimulatorMidiSession();
 
             CFUniquePtr<CFStringRef> name (getGlobalMidiClientName().toCFString());
-            CHECK_ERROR (MIDIClientCreate (name.get(), &globalSystemChangeCallback, nullptr, &globalMidiClient));
-        }
+            MIDIClientRef result{};
+            CHECK_ERROR (MIDIClientCreate (name.get(), globalSystemChangeCallback, nullptr, &result));
+            return result;
+        }();
 
         return globalMidiClient;
     }
@@ -1297,7 +1270,13 @@ MidiOutput::~MidiOutput()
 
 void MidiOutput::sendMessageNow (const MidiMessage& message)
 {
-    internal->send (message);
+    internal->send (ump::BytestreamMidiView (&message));
+}
+
+MidiDeviceListConnection MidiDeviceListConnection::make (std::function<void()> cb)
+{
+    auto& broadcaster = MidiDeviceListConnectionBroadcaster::get();
+    return { &broadcaster, broadcaster.add (std::move (cb)) };
 }
 
 #undef CHECK_ERROR

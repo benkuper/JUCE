@@ -345,6 +345,7 @@ private:
     //==============================================================================
     class AccessibilityIgnoredComponent : public Component
     {
+    public:
         std::unique_ptr<AccessibilityHandler> createAccessibilityHandler() override
         {
             return createIgnoredAccessibilityHandler (*this);

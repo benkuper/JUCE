@@ -32,11 +32,6 @@
  #error AUv3 needs Deployment Target OS X 10.11 or higher to compile
 #endif
 
-#if (JUCE_IOS && defined (__IPHONE_15_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_15_0) \
-   || (JUCE_MAC && defined (MAC_OS_VERSION_12_0) && MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_VERSION_12_0)
- #define JUCE_AUV3_MIDI_EVENT_LIST_SUPPORTED 1
-#endif
-
 #ifndef __OBJC2__
  #error AUv3 needs Objective-C 2 support (compile with 64-bit)
 #endif
@@ -55,10 +50,6 @@
 #include <juce_audio_basics/native/juce_mac_CoreAudioTimeConversions.h>
 #include <juce_audio_processors/format_types/juce_LegacyAudioParameter.cpp>
 #include <juce_audio_processors/format_types/juce_AU_Shared.h>
-
-#if JUCE_AUV3_MIDI_EVENT_LIST_SUPPORTED
- #include <juce_audio_basics/midi/ump/juce_UMP.h>
-#endif
 
 #define JUCE_VIEWCONTROLLER_OBJC_NAME(x) JUCE_JOIN_MACRO (x, FactoryAUv3)
 
@@ -1363,14 +1354,17 @@ private:
             jassertfalse;
         }
 
-        [paramTree.get() setImplementorValueObserver: paramObserver];
-        [paramTree.get() setImplementorValueProvider: paramProvider];
-        [paramTree.get() setImplementorStringFromValueCallback: stringFromValueProvider];
-        [paramTree.get() setImplementorValueFromStringCallback: valueFromStringProvider];
+        [paramTree.get() setImplementorValueObserver: ^(AUParameter* param, AUValue value) { this->valueChangedFromHost (param, value); }];
+        [paramTree.get() setImplementorValueProvider: ^(AUParameter* param) { return this->getValue (param); }];
+        [paramTree.get() setImplementorStringFromValueCallback: ^(AUParameter* param, const AUValue* value) { return this->stringFromValue (param, value); }];
+        [paramTree.get() setImplementorValueFromStringCallback: ^(AUParameter* param, NSString* str) { return this->valueFromString (param, str); }];
 
         if (getAudioProcessor().hasEditor())
         {
-            editorObserverToken = ObserverPtr ([paramTree.get() tokenByAddingParameterObserver: editorParamObserver],
+            editorObserverToken = ObserverPtr ([paramTree.get() tokenByAddingParameterObserver: ^(AUParameterAddress, AUValue)
+                                                {
+                                                    // this will have already been handled by valueChangedFromHost
+                                                }],
                                                ObserverDestructor { paramTree.get() });
         }
     }
@@ -1434,7 +1428,7 @@ private:
                 }
                 break;
 
-               #if JUCE_AUV3_MIDI_EVENT_LIST_SUPPORTED
+               #if JUCE_APPLE_MIDI_EVENT_LIST_SUPPORTED
                 case AURenderEventMIDIEventList:
                 {
                     const auto& list = event->MIDIEventsList.eventList;
@@ -1445,7 +1439,10 @@ private:
                         converter.dispatch (reinterpret_cast<const uint32_t*> (packet->words),
                                             reinterpret_cast<const uint32_t*> (packet->words + packet->wordCount),
                                             static_cast<int> (packet->timeStamp - (MIDITimeStamp) startTime),
-                                            [this] (const MidiMessage& message) { midiMessages.addEvent (message, int (message.getTimeStamp())); });
+                                            [this] (const ump::BytestreamMidiView& message)
+                                            {
+                                                midiMessages.addEvent (message.getMessage(), (int) message.timestamp);
+                                            });
 
                         packet = MIDIEventPacketNext (packet);
                     }
@@ -1636,11 +1633,6 @@ private:
         return 0;
     }
 
-    void valueChangedForObserver (AUParameterAddress, AUValue)
-    {
-        // this will have already been handled by valueChangedFromHost
-    }
-
     NSString* stringFromValue (AUParameter* param, const AUValue* value)
     {
         String text;
@@ -1744,11 +1736,6 @@ private:
     CoreAudioTimeConversions timeConversions;
     std::unique_ptr<AUAudioUnitBusArray, NSObjectDeleter> inputBusses, outputBusses;
 
-    ObjCBlock<AUImplementorValueObserver> paramObserver = CreateObjCBlock (this, &JuceAudioUnitv3::valueChangedFromHost);
-    ObjCBlock<AUImplementorValueProvider> paramProvider = CreateObjCBlock (this, &JuceAudioUnitv3::getValue);
-    ObjCBlock<AUImplementorStringFromValueCallback> stringFromValueProvider = CreateObjCBlock (this, &JuceAudioUnitv3::stringFromValue);
-    ObjCBlock<AUImplementorValueFromStringCallback> valueFromStringProvider = CreateObjCBlock (this, &JuceAudioUnitv3::valueFromString);
-
    #if ! JUCE_FORCE_USE_LEGACY_PARAM_IDS
     std::map<AUParameterAddress, int> indexForAddress;
    #endif
@@ -1758,7 +1745,6 @@ private:
     // to avoid recursion on parameter changes, we need to add an
     // editor observer to do the parameter changes
     std::unique_ptr<AUParameterTree, NSObjectDeleter> paramTree;
-    ObjCBlock<AUParameterObserver> editorParamObserver = CreateObjCBlock (this, &JuceAudioUnitv3::valueChangedForObserver);
     ObserverPtr editorObserverToken;
 
     std::unique_ptr<NSMutableArray<NSNumber*>, NSObjectDeleter> channelCapabilities;
@@ -1774,7 +1760,7 @@ private:
     MidiBuffer midiMessages;
     AUMIDIOutputEventBlock midiOutputEventBlock = nullptr;
 
-   #if JUCE_AUV3_MIDI_EVENT_LIST_SUPPORTED
+   #if JUCE_APPLE_MIDI_EVENT_LIST_SUPPORTED
     ump::ToBytestreamDispatcher converter { 2048 };
    #endif
 

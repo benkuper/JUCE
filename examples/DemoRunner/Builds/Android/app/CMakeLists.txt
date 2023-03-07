@@ -1,7 +1,7 @@
 # Automatically generated CMakeLists, created by the Projucer
 # Don't edit this file! Your changes will be overwritten when you re-save the Projucer project!
 
-cmake_minimum_required(VERSION 3.4.1)
+cmake_minimum_required(VERSION 3.22)
 
 project(juce_jni_project)
 
@@ -14,7 +14,7 @@ add_subdirectory (${OBOE_DIR} ./oboe)
 add_library("cpufeatures" STATIC "${ANDROID_NDK}/sources/android/cpufeatures/cpu-features.c")
 set_source_files_properties("${ANDROID_NDK}/sources/android/cpufeatures/cpu-features.c" PROPERTIES COMPILE_FLAGS "-Wno-sign-conversion -Wno-gnu-statement-expression")
 
-add_definitions([[-DJUCE_ANDROID=1]] [[-DJUCE_ANDROID_API_VERSION=23]] [[-DJUCE_PUSH_NOTIFICATIONS=1]] [[-DJUCE_PUSH_NOTIFICATIONS_ACTIVITY="com/rmsl/juce/JuceActivity"]] [[-DJUCE_CONTENT_SHARING=1]] [[-DJUCE_ANDROID_GL_ES_VERSION_3_0=1]] [[-DJUCE_DEMO_RUNNER=1]] [[-DJUCE_UNIT_TESTS=1]] [[-DJUCER_ANDROIDSTUDIO_7F0E4A25=1]] [[-DJUCE_APP_VERSION=7.0.4]] [[-DJUCE_APP_VERSION_HEX=0x70004]])
+add_definitions([[-DJUCE_ANDROID=1]] [[-DJUCE_ANDROID_API_VERSION=23]] [[-DJUCE_PUSH_NOTIFICATIONS=1]] [[-DJUCE_PUSH_NOTIFICATIONS_ACTIVITY="com/rmsl/juce/JuceActivity"]] [[-DJUCE_CONTENT_SHARING=1]] [[-DJUCE_ANDROID_GL_ES_VERSION_3_0=1]] [[-DJUCE_DEMO_RUNNER=1]] [[-DJUCE_UNIT_TESTS=1]] [[-DJUCER_ANDROIDSTUDIO_7F0E4A25=1]] [[-DJUCE_APP_VERSION=7.0.5]] [[-DJUCE_APP_VERSION_HEX=0x70005]])
 
 include_directories( AFTER
     "../../../../../modules/juce_audio_processors/format_types/LV2_SDK/lilv/src"
@@ -34,9 +34,9 @@ include_directories( AFTER
 enable_language(ASM)
 
 if(JUCE_BUILD_CONFIGURATION MATCHES "DEBUG")
-    add_definitions([[-DJUCE_DISPLAY_SPLASH_SCREEN=0]] [[-DJUCE_USE_DARK_SPLASH_SCREEN=1]] [[-DJUCE_PROJUCER_VERSION=0x70004]] [[-DJUCE_MODULE_AVAILABLE_juce_analytics=1]] [[-DJUCE_MODULE_AVAILABLE_juce_audio_basics=1]] [[-DJUCE_MODULE_AVAILABLE_juce_audio_devices=1]] [[-DJUCE_MODULE_AVAILABLE_juce_audio_formats=1]] [[-DJUCE_MODULE_AVAILABLE_juce_audio_processors=1]] [[-DJUCE_MODULE_AVAILABLE_juce_audio_utils=1]] [[-DJUCE_MODULE_AVAILABLE_juce_box2d=1]] [[-DJUCE_MODULE_AVAILABLE_juce_core=1]] [[-DJUCE_MODULE_AVAILABLE_juce_cryptography=1]] [[-DJUCE_MODULE_AVAILABLE_juce_data_structures=1]] [[-DJUCE_MODULE_AVAILABLE_juce_dsp=1]] [[-DJUCE_MODULE_AVAILABLE_juce_events=1]] [[-DJUCE_MODULE_AVAILABLE_juce_graphics=1]] [[-DJUCE_MODULE_AVAILABLE_juce_gui_basics=1]] [[-DJUCE_MODULE_AVAILABLE_juce_gui_extra=1]] [[-DJUCE_MODULE_AVAILABLE_juce_opengl=1]] [[-DJUCE_MODULE_AVAILABLE_juce_osc=1]] [[-DJUCE_MODULE_AVAILABLE_juce_product_unlocking=1]] [[-DJUCE_MODULE_AVAILABLE_juce_video=1]] [[-DJUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1]] [[-DJUCE_USE_MP3AUDIOFORMAT=1]] [[-DJUCE_PLUGINHOST_VST3=1]] [[-DJUCE_PLUGINHOST_LV2=1]] [[-DJUCE_ALLOW_STATIC_NULL_VARIABLES=0]] [[-DJUCE_STRICT_REFCOUNTEDPOINTER=1]] [[-DJUCE_USE_CAMERA=1]] [[-DJUCE_STANDALONE_APPLICATION=1]] [[-DJUCE_DEMO_RUNNER=1]] [[-DJUCE_UNIT_TESTS=1]] [[-DJUCER_ANDROIDSTUDIO_7F0E4A25=1]] [[-DJUCE_APP_VERSION=7.0.4]] [[-DJUCE_APP_VERSION_HEX=0x70004]] [[-DDEBUG=1]] [[-D_DEBUG=1]])
+    add_definitions([[-DJUCE_DISPLAY_SPLASH_SCREEN=0]] [[-DJUCE_USE_DARK_SPLASH_SCREEN=1]] [[-DJUCE_PROJUCER_VERSION=0x70005]] [[-DJUCE_MODULE_AVAILABLE_juce_analytics=1]] [[-DJUCE_MODULE_AVAILABLE_juce_audio_basics=1]] [[-DJUCE_MODULE_AVAILABLE_juce_audio_devices=1]] [[-DJUCE_MODULE_AVAILABLE_juce_audio_formats=1]] [[-DJUCE_MODULE_AVAILABLE_juce_audio_processors=1]] [[-DJUCE_MODULE_AVAILABLE_juce_audio_utils=1]] [[-DJUCE_MODULE_AVAILABLE_juce_box2d=1]] [[-DJUCE_MODULE_AVAILABLE_juce_core=1]] [[-DJUCE_MODULE_AVAILABLE_juce_cryptography=1]] [[-DJUCE_MODULE_AVAILABLE_juce_data_structures=1]] [[-DJUCE_MODULE_AVAILABLE_juce_dsp=1]] [[-DJUCE_MODULE_AVAILABLE_juce_events=1]] [[-DJUCE_MODULE_AVAILABLE_juce_graphics=1]] [[-DJUCE_MODULE_AVAILABLE_juce_gui_basics=1]] [[-DJUCE_MODULE_AVAILABLE_juce_gui_extra=1]] [[-DJUCE_MODULE_AVAILABLE_juce_opengl=1]] [[-DJUCE_MODULE_AVAILABLE_juce_osc=1]] [[-DJUCE_MODULE_AVAILABLE_juce_product_unlocking=1]] [[-DJUCE_MODULE_AVAILABLE_juce_video=1]] [[-DJUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1]] [[-DJUCE_USE_MP3AUDIOFORMAT=1]] [[-DJUCE_PLUGINHOST_VST3=1]] [[-DJUCE_PLUGINHOST_LV2=1]] [[-DJUCE_ALLOW_STATIC_NULL_VARIABLES=0]] [[-DJUCE_STRICT_REFCOUNTEDPOINTER=1]] [[-DJUCE_USE_CAMERA=1]] [[-DJUCE_STANDALONE_APPLICATION=1]] [[-DJUCE_DEMO_RUNNER=1]] [[-DJUCE_UNIT_TESTS=1]] [[-DJUCER_ANDROIDSTUDIO_7F0E4A25=1]] [[-DJUCE_APP_VERSION=7.0.5]] [[-DJUCE_APP_VERSION_HEX=0x70005]] [[-DDEBUG=1]] [[-D_DEBUG=1]])
 elseif(JUCE_BUILD_CONFIGURATION MATCHES "RELEASE")
-    add_definitions([[-DJUCE_DISPLAY_SPLASH_SCREEN=0]] [[-DJUCE_USE_DARK_SPLASH_SCREEN=1]] [[-DJUCE_PROJUCER_VERSION=0x70004]] [[-DJUCE_MODULE_AVAILABLE_juce_analytics=1]] [[-DJUCE_MODULE_AVAILABLE_juce_audio_basics=1]] [[-DJUCE_MODULE_AVAILABLE_juce_audio_devices=1]] [[-DJUCE_MODULE_AVAILABLE_juce_audio_formats=1]] [[-DJUCE_MODULE_AVAILABLE_juce_audio_processors=1]] [[-DJUCE_MODULE_AVAILABLE_juce_audio_utils=1]] [[-DJUCE_MODULE_AVAILABLE_juce_box2d=1]] [[-DJUCE_MODULE_AVAILABLE_juce_core=1]] [[-DJUCE_MODULE_AVAILABLE_juce_cryptography=1]] [[-DJUCE_MODULE_AVAILABLE_juce_data_structures=1]] [[-DJUCE_MODULE_AVAILABLE_juce_dsp=1]] [[-DJUCE_MODULE_AVAILABLE_juce_events=1]] [[-DJUCE_MODULE_AVAILABLE_juce_graphics=1]] [[-DJUCE_MODULE_AVAILABLE_juce_gui_basics=1]] [[-DJUCE_MODULE_AVAILABLE_juce_gui_extra=1]] [[-DJUCE_MODULE_AVAILABLE_juce_opengl=1]] [[-DJUCE_MODULE_AVAILABLE_juce_osc=1]] [[-DJUCE_MODULE_AVAILABLE_juce_product_unlocking=1]] [[-DJUCE_MODULE_AVAILABLE_juce_video=1]] [[-DJUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1]] [[-DJUCE_USE_MP3AUDIOFORMAT=1]] [[-DJUCE_PLUGINHOST_VST3=1]] [[-DJUCE_PLUGINHOST_LV2=1]] [[-DJUCE_ALLOW_STATIC_NULL_VARIABLES=0]] [[-DJUCE_STRICT_REFCOUNTEDPOINTER=1]] [[-DJUCE_USE_CAMERA=1]] [[-DJUCE_STANDALONE_APPLICATION=1]] [[-DJUCE_DEMO_RUNNER=1]] [[-DJUCE_UNIT_TESTS=1]] [[-DJUCER_ANDROIDSTUDIO_7F0E4A25=1]] [[-DJUCE_APP_VERSION=7.0.4]] [[-DJUCE_APP_VERSION_HEX=0x70004]] [[-DNDEBUG=1]])
+    add_definitions([[-DJUCE_DISPLAY_SPLASH_SCREEN=0]] [[-DJUCE_USE_DARK_SPLASH_SCREEN=1]] [[-DJUCE_PROJUCER_VERSION=0x70005]] [[-DJUCE_MODULE_AVAILABLE_juce_analytics=1]] [[-DJUCE_MODULE_AVAILABLE_juce_audio_basics=1]] [[-DJUCE_MODULE_AVAILABLE_juce_audio_devices=1]] [[-DJUCE_MODULE_AVAILABLE_juce_audio_formats=1]] [[-DJUCE_MODULE_AVAILABLE_juce_audio_processors=1]] [[-DJUCE_MODULE_AVAILABLE_juce_audio_utils=1]] [[-DJUCE_MODULE_AVAILABLE_juce_box2d=1]] [[-DJUCE_MODULE_AVAILABLE_juce_core=1]] [[-DJUCE_MODULE_AVAILABLE_juce_cryptography=1]] [[-DJUCE_MODULE_AVAILABLE_juce_data_structures=1]] [[-DJUCE_MODULE_AVAILABLE_juce_dsp=1]] [[-DJUCE_MODULE_AVAILABLE_juce_events=1]] [[-DJUCE_MODULE_AVAILABLE_juce_graphics=1]] [[-DJUCE_MODULE_AVAILABLE_juce_gui_basics=1]] [[-DJUCE_MODULE_AVAILABLE_juce_gui_extra=1]] [[-DJUCE_MODULE_AVAILABLE_juce_opengl=1]] [[-DJUCE_MODULE_AVAILABLE_juce_osc=1]] [[-DJUCE_MODULE_AVAILABLE_juce_product_unlocking=1]] [[-DJUCE_MODULE_AVAILABLE_juce_video=1]] [[-DJUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1]] [[-DJUCE_USE_MP3AUDIOFORMAT=1]] [[-DJUCE_PLUGINHOST_VST3=1]] [[-DJUCE_PLUGINHOST_LV2=1]] [[-DJUCE_ALLOW_STATIC_NULL_VARIABLES=0]] [[-DJUCE_STRICT_REFCOUNTEDPOINTER=1]] [[-DJUCE_USE_CAMERA=1]] [[-DJUCE_STANDALONE_APPLICATION=1]] [[-DJUCE_DEMO_RUNNER=1]] [[-DJUCE_UNIT_TESTS=1]] [[-DJUCER_ANDROIDSTUDIO_7F0E4A25=1]] [[-DJUCE_APP_VERSION=7.0.5]] [[-DJUCE_APP_VERSION_HEX=0x70005]] [[-DNDEBUG=1]])
 else()
     message( FATAL_ERROR "No matching build-configuration found." )
 endif()
@@ -954,6 +954,7 @@ add_library( ${BINARY_NAME}
     "../../../../../modules/juce_core/containers/juce_ScopedValueSetter.h"
     "../../../../../modules/juce_core/containers/juce_SingleThreadedAbstractFifo.h"
     "../../../../../modules/juce_core/containers/juce_SortedSet.h"
+    "../../../../../modules/juce_core/containers/juce_Span.h"
     "../../../../../modules/juce_core/containers/juce_SparseSet.cpp"
     "../../../../../modules/juce_core/containers/juce_SparseSet.h"
     "../../../../../modules/juce_core/containers/juce_Variant.cpp"
@@ -1757,17 +1758,21 @@ add_library( ${BINARY_NAME}
     "../../../../../modules/juce_gui_basics/native/x11/juce_linux_XWindowSystem.h"
     "../../../../../modules/juce_gui_basics/native/juce_android_ContentSharer.cpp"
     "../../../../../modules/juce_gui_basics/native/juce_android_FileChooser.cpp"
+    "../../../../../modules/juce_gui_basics/native/juce_android_NativeMessageBox.cpp"
     "../../../../../modules/juce_gui_basics/native/juce_android_Windowing.cpp"
     "../../../../../modules/juce_gui_basics/native/juce_ios_ContentSharer.cpp"
     "../../../../../modules/juce_gui_basics/native/juce_ios_FileChooser.mm"
+    "../../../../../modules/juce_gui_basics/native/juce_ios_NativeMessageBox.mm"
     "../../../../../modules/juce_gui_basics/native/juce_ios_UIViewComponentPeer.mm"
     "../../../../../modules/juce_gui_basics/native/juce_ios_Windowing.mm"
     "../../../../../modules/juce_gui_basics/native/juce_linux_FileChooser.cpp"
+    "../../../../../modules/juce_gui_basics/native/juce_linux_NativeMessageBox.cpp"
     "../../../../../modules/juce_gui_basics/native/juce_linux_Windowing.cpp"
     "../../../../../modules/juce_gui_basics/native/juce_mac_CGMetalLayerRenderer.h"
     "../../../../../modules/juce_gui_basics/native/juce_mac_FileChooser.mm"
     "../../../../../modules/juce_gui_basics/native/juce_mac_MainMenu.mm"
     "../../../../../modules/juce_gui_basics/native/juce_mac_MouseCursor.mm"
+    "../../../../../modules/juce_gui_basics/native/juce_mac_NativeMessageBox.mm"
     "../../../../../modules/juce_gui_basics/native/juce_mac_NSViewComponentPeer.mm"
     "../../../../../modules/juce_gui_basics/native/juce_mac_PerScreenDisplayLinks.h"
     "../../../../../modules/juce_gui_basics/native/juce_mac_Windowing.mm"
@@ -1775,6 +1780,7 @@ add_library( ${BINARY_NAME}
     "../../../../../modules/juce_gui_basics/native/juce_ScopedDPIAwarenessDisabler.h"
     "../../../../../modules/juce_gui_basics/native/juce_win32_DragAndDrop.cpp"
     "../../../../../modules/juce_gui_basics/native/juce_win32_FileChooser.cpp"
+    "../../../../../modules/juce_gui_basics/native/juce_win32_NativeMessageBox.cpp"
     "../../../../../modules/juce_gui_basics/native/juce_win32_ScopedThreadDPIAwarenessSetter.h"
     "../../../../../modules/juce_gui_basics/native/juce_win32_Windowing.cpp"
     "../../../../../modules/juce_gui_basics/positioning/juce_MarkerList.cpp"
@@ -1844,10 +1850,14 @@ add_library( ${BINARY_NAME}
     "../../../../../modules/juce_gui_basics/windows/juce_DialogWindow.h"
     "../../../../../modules/juce_gui_basics/windows/juce_DocumentWindow.cpp"
     "../../../../../modules/juce_gui_basics/windows/juce_DocumentWindow.h"
+    "../../../../../modules/juce_gui_basics/windows/juce_MessageBoxOptions.cpp"
     "../../../../../modules/juce_gui_basics/windows/juce_MessageBoxOptions.h"
+    "../../../../../modules/juce_gui_basics/windows/juce_NativeMessageBox.cpp"
     "../../../../../modules/juce_gui_basics/windows/juce_NativeMessageBox.h"
     "../../../../../modules/juce_gui_basics/windows/juce_ResizableWindow.cpp"
     "../../../../../modules/juce_gui_basics/windows/juce_ResizableWindow.h"
+    "../../../../../modules/juce_gui_basics/windows/juce_ScopedMessageBox.cpp"
+    "../../../../../modules/juce_gui_basics/windows/juce_ScopedMessageBox.h"
     "../../../../../modules/juce_gui_basics/windows/juce_ThreadWithProgressWindow.cpp"
     "../../../../../modules/juce_gui_basics/windows/juce_ThreadWithProgressWindow.h"
     "../../../../../modules/juce_gui_basics/windows/juce_TooltipWindow.cpp"
@@ -2936,6 +2946,7 @@ set_source_files_properties(
     "../../../../../modules/juce_core/containers/juce_ScopedValueSetter.h"
     "../../../../../modules/juce_core/containers/juce_SingleThreadedAbstractFifo.h"
     "../../../../../modules/juce_core/containers/juce_SortedSet.h"
+    "../../../../../modules/juce_core/containers/juce_Span.h"
     "../../../../../modules/juce_core/containers/juce_SparseSet.cpp"
     "../../../../../modules/juce_core/containers/juce_SparseSet.h"
     "../../../../../modules/juce_core/containers/juce_Variant.cpp"
@@ -3739,17 +3750,21 @@ set_source_files_properties(
     "../../../../../modules/juce_gui_basics/native/x11/juce_linux_XWindowSystem.h"
     "../../../../../modules/juce_gui_basics/native/juce_android_ContentSharer.cpp"
     "../../../../../modules/juce_gui_basics/native/juce_android_FileChooser.cpp"
+    "../../../../../modules/juce_gui_basics/native/juce_android_NativeMessageBox.cpp"
     "../../../../../modules/juce_gui_basics/native/juce_android_Windowing.cpp"
     "../../../../../modules/juce_gui_basics/native/juce_ios_ContentSharer.cpp"
     "../../../../../modules/juce_gui_basics/native/juce_ios_FileChooser.mm"
+    "../../../../../modules/juce_gui_basics/native/juce_ios_NativeMessageBox.mm"
     "../../../../../modules/juce_gui_basics/native/juce_ios_UIViewComponentPeer.mm"
     "../../../../../modules/juce_gui_basics/native/juce_ios_Windowing.mm"
     "../../../../../modules/juce_gui_basics/native/juce_linux_FileChooser.cpp"
+    "../../../../../modules/juce_gui_basics/native/juce_linux_NativeMessageBox.cpp"
     "../../../../../modules/juce_gui_basics/native/juce_linux_Windowing.cpp"
     "../../../../../modules/juce_gui_basics/native/juce_mac_CGMetalLayerRenderer.h"
     "../../../../../modules/juce_gui_basics/native/juce_mac_FileChooser.mm"
     "../../../../../modules/juce_gui_basics/native/juce_mac_MainMenu.mm"
     "../../../../../modules/juce_gui_basics/native/juce_mac_MouseCursor.mm"
+    "../../../../../modules/juce_gui_basics/native/juce_mac_NativeMessageBox.mm"
     "../../../../../modules/juce_gui_basics/native/juce_mac_NSViewComponentPeer.mm"
     "../../../../../modules/juce_gui_basics/native/juce_mac_PerScreenDisplayLinks.h"
     "../../../../../modules/juce_gui_basics/native/juce_mac_Windowing.mm"
@@ -3757,6 +3772,7 @@ set_source_files_properties(
     "../../../../../modules/juce_gui_basics/native/juce_ScopedDPIAwarenessDisabler.h"
     "../../../../../modules/juce_gui_basics/native/juce_win32_DragAndDrop.cpp"
     "../../../../../modules/juce_gui_basics/native/juce_win32_FileChooser.cpp"
+    "../../../../../modules/juce_gui_basics/native/juce_win32_NativeMessageBox.cpp"
     "../../../../../modules/juce_gui_basics/native/juce_win32_ScopedThreadDPIAwarenessSetter.h"
     "../../../../../modules/juce_gui_basics/native/juce_win32_Windowing.cpp"
     "../../../../../modules/juce_gui_basics/positioning/juce_MarkerList.cpp"
@@ -3826,10 +3842,14 @@ set_source_files_properties(
     "../../../../../modules/juce_gui_basics/windows/juce_DialogWindow.h"
     "../../../../../modules/juce_gui_basics/windows/juce_DocumentWindow.cpp"
     "../../../../../modules/juce_gui_basics/windows/juce_DocumentWindow.h"
+    "../../../../../modules/juce_gui_basics/windows/juce_MessageBoxOptions.cpp"
     "../../../../../modules/juce_gui_basics/windows/juce_MessageBoxOptions.h"
+    "../../../../../modules/juce_gui_basics/windows/juce_NativeMessageBox.cpp"
     "../../../../../modules/juce_gui_basics/windows/juce_NativeMessageBox.h"
     "../../../../../modules/juce_gui_basics/windows/juce_ResizableWindow.cpp"
     "../../../../../modules/juce_gui_basics/windows/juce_ResizableWindow.h"
+    "../../../../../modules/juce_gui_basics/windows/juce_ScopedMessageBox.cpp"
+    "../../../../../modules/juce_gui_basics/windows/juce_ScopedMessageBox.h"
     "../../../../../modules/juce_gui_basics/windows/juce_ThreadWithProgressWindow.cpp"
     "../../../../../modules/juce_gui_basics/windows/juce_ThreadWithProgressWindow.h"
     "../../../../../modules/juce_gui_basics/windows/juce_TooltipWindow.cpp"

@@ -997,6 +997,8 @@ public:
     void mouseEnter (const MouseEvent&) override;
     /** @internal */
     bool keyPressed (const KeyPress&) override;
+    /** @internal */
+    std::unique_ptr<AccessibilityHandler> createAccessibilityHandler() override;
 
     //==============================================================================
    #ifndef DOXYGEN
@@ -1018,7 +1020,6 @@ private:
     JUCE_PUBLIC_IN_DLL_BUILD (class Pimpl)
     std::unique_ptr<Pimpl> pimpl;
 
-    std::unique_ptr<AccessibilityHandler> createAccessibilityHandler() override;
     void init (SliderStyle, TextEntryBoxPosition);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Slider)

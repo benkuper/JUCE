@@ -558,7 +558,7 @@ public:
         {
             ++insideToFrontCall;
 
-            if (makeActiveWindow)
+            if (makeActiveWindow && ! inBecomeKeyWindow)
                 [window makeKeyAndOrderFront: nil];
             else
                 [window orderFront: nil];
@@ -1541,7 +1541,9 @@ public:
     {
         if (window != nil)
         {
-            [window makeKeyWindow];
+            if (! inBecomeKeyWindow)
+                [window makeKeyWindow];
+
             [window makeFirstResponder: view];
 
             viewFocusGain();
@@ -1577,6 +1579,14 @@ public:
 
     bool sendEventToInputContextOrComponent (NSEvent* ev)
     {
+        // In the case that an event was processed unsuccessfully in performKeyEquivalent and then
+        // posted back to keyDown by the system, this check will ensure that we don't attempt to
+        // process the same event a second time.
+        const auto newEvent = KeyEventAttributes::make (ev);
+
+        if (std::exchange (lastSeenKeyEvent, newEvent) == newEvent)
+            return false;
+
         // We assume that the event will be handled by the IME.
         // Occasionally, the inputContext may be sent key events like cmd+Q, which it will turn
         // into a noop: call and forward to doCommandBySelector:.
@@ -1609,6 +1619,73 @@ public:
     }
 
     //==============================================================================
+    class KeyEventAttributes
+    {
+        auto tie() const
+        {
+            return std::tie (type,
+                             modifierFlags,
+                             timestamp,
+                             windowNumber,
+                             characters,
+                             charactersIgnoringModifiers,
+                             keyCode,
+                             isRepeat);
+        }
+
+    public:
+        static std::optional<KeyEventAttributes> make (NSEvent* event)
+        {
+            const auto type = [event type];
+
+            if (type != NSEventTypeKeyDown && type != NSEventTypeKeyUp)
+                return {};
+
+            return KeyEventAttributes
+            {
+                type,
+                [event modifierFlags],
+                [event timestamp],
+                [event windowNumber],
+                nsStringToJuce ([event characters]),
+                nsStringToJuce ([event charactersIgnoringModifiers]),
+                [event keyCode],
+                static_cast<bool> ([event isARepeat])
+            };
+        }
+
+        bool operator== (const KeyEventAttributes& other) const { return tie() == other.tie(); }
+        bool operator!= (const KeyEventAttributes& other) const { return tie() != other.tie(); }
+
+    private:
+        KeyEventAttributes (NSEventType typeIn,
+                            NSEventModifierFlags flagsIn,
+                            NSTimeInterval timestampIn,
+                            NSInteger windowNumberIn,
+                            String charactersIn,
+                            String charactersIgnoringModifiersIn,
+                            unsigned short keyCodeIn,
+                            bool isRepeatIn)
+            : type (typeIn),
+              modifierFlags (flagsIn),
+              timestamp (timestampIn),
+              windowNumber (windowNumberIn),
+              characters (charactersIn),
+              charactersIgnoringModifiers (charactersIgnoringModifiersIn),
+              keyCode (keyCodeIn),
+              isRepeat (isRepeatIn)
+        {}
+
+        NSEventType type;
+        NSEventModifierFlags modifierFlags;
+        NSTimeInterval timestamp;
+        NSInteger windowNumber;
+        String characters;
+        String charactersIgnoringModifiers;
+        unsigned short keyCode;
+        bool isRepeat;
+    };
+
     NSWindow* window = nil;
     NSView* view = nil;
     WeakReference<Component> safeComponent;
@@ -1622,13 +1699,15 @@ public:
     bool isFirstLiveResize = false, viewCannotHandleEvent = false;
     bool isStretchingTop = false, isStretchingLeft = false, isStretchingBottom = false, isStretchingRight = false;
     bool windowRepresentsFile = false;
-    bool isAlwaysOnTop = false, wasAlwaysOnTop = false;
+    bool isAlwaysOnTop = false, wasAlwaysOnTop = false, inBecomeKeyWindow = false;
     String stringBeingComposed;
     int startOfMarkedTextInTextInputTarget = 0;
 
     Rectangle<float> lastSizeBeforeZoom;
     RectangleList<float> deferredRepaints;
     uint32 lastRepaintTime;
+
+    std::optional<KeyEventAttributes> lastSeenKeyEvent;
 
     static ComponentPeer* currentlyFocusedPeer;
     static std::set<int> keysCurrentlyDown;
@@ -2085,7 +2164,8 @@ struct JuceNSViewClass   : public NSViewComponentPeerWrapper<ObjCClass<NSView>>
         addMethod (@selector (performKeyEquivalent:), [] (id self, SEL s, NSEvent* ev) -> BOOL
         {
             if (auto* owner = getOwner (self))
-                return owner->sendEventToInputContextOrComponent (ev);
+                if (owner->sendEventToInputContextOrComponent (ev))
+                    return YES;
 
             return sendSuperclassMessage<BOOL> (self, s, ev);
         });
@@ -2453,6 +2533,10 @@ struct JuceNSWindowClass   : public NSViewComponentPeerWrapper<ObjCClass<NSWindo
 
             if (auto* owner = getOwner (self))
             {
+                jassert (! owner->inBecomeKeyWindow);
+
+                const ScopedValueSetter scope { owner->inBecomeKeyWindow, true };
+
                 if (owner->canBecomeKeyWindow())
                 {
                     owner->becomeKeyWindow();

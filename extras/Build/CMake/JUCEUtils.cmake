@@ -147,6 +147,86 @@ endfunction()
 
 # ==================================================================================================
 
+function(_juce_create_linux_subprocess_helper_target)
+    if(TARGET juce_linux_subprocess_helper)
+        return()
+    endif()
+
+    set(source "${JUCE_CMAKE_UTILS_DIR}/juce_LinuxSubprocessHelper.cpp")
+
+    add_executable(juce_linux_subprocess_helper ${source})
+    add_executable(juce::juce_linux_subprocess_helper ALIAS juce_linux_subprocess_helper)
+    target_compile_features(juce_linux_subprocess_helper PRIVATE cxx_std_17)
+    set(THREADS_PREFER_PTHREAD_FLAG ON)
+    find_package(Threads REQUIRED)
+    target_link_libraries(juce_linux_subprocess_helper PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
+endfunction()
+
+function(_juce_create_embedded_linux_subprocess_target output_target_name target)
+    # This library needs to be created in every directory where a target wants to link against it.
+    # Pre CMake 3.20 the GENERATED property is only visible in the directory of the current target,
+    # and even post 3.20, CMake will not know how to generate the sources outside this directory.
+    set(target_directory_key JUCE_EMBEDDED_LINUX_SUBPROCESS_TARGET)
+    get_directory_property(embedded_linux_subprocess_target ${target_directory_key})
+
+    if(embedded_linux_subprocess_target)
+        set(${output_target_name} juce::${embedded_linux_subprocess_target} PARENT_SCOPE)
+        return()
+    endif()
+
+    set(prefix "_juce_directory_prefix")
+    set(embedded_linux_subprocess_target ${prefix}_embedded_linux_subprocess)
+
+    while(TARGET ${embedded_linux_subprocess_target})
+        set(embedded_linux_subprocess_target ${prefix}_${embedded_linux_subprocess_target})
+    endwhile()
+
+    _juce_create_linux_subprocess_helper_target()
+
+    get_target_property(generated_sources_directory ${target} JUCE_GENERATED_SOURCES_DIRECTORY)
+
+    if(generated_sources_directory)
+        set(juce_linux_subprocess_helper_binary_dir "${generated_sources_directory}")
+    else()
+        set(juce_linux_subprocess_helper_binary_dir "${CMAKE_CURRENT_BINARY_DIR}/juce_LinuxSubprocessHelper")
+    endif()
+
+    set(binary_header_file  "${juce_linux_subprocess_helper_binary_dir}/juce_LinuxSubprocessHelperBinaryData.h")
+    set(binary_source_file  "${juce_linux_subprocess_helper_binary_dir}/juce_LinuxSubprocessHelperBinaryData.cpp")
+    set(juceaide_input_file "${juce_linux_subprocess_helper_binary_dir}/input_file_list")
+
+    file(GENERATE OUTPUT ${juceaide_input_file} CONTENT "$<TARGET_FILE:juce_linux_subprocess_helper>")
+    file(MAKE_DIRECTORY ${juce_linux_subprocess_helper_binary_dir})
+
+    add_custom_command(
+        OUTPUT
+            ${binary_header_file}
+            ${binary_source_file}
+        COMMAND juce::juceaide binarydata "LinuxSubprocessHelperBinaryData" "${binary_header_file}"
+            ${juce_linux_subprocess_helper_binary_dir} "${juceaide_input_file}"
+        COMMAND
+            ${CMAKE_COMMAND} -E rename "${juce_linux_subprocess_helper_binary_dir}/BinaryData1.cpp" "${binary_source_file}"
+        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+        DEPENDS juce_linux_subprocess_helper
+        VERBATIM)
+
+    add_library(${embedded_linux_subprocess_target} INTERFACE)
+    target_sources(${embedded_linux_subprocess_target} INTERFACE ${binary_source_file})
+    target_include_directories(${embedded_linux_subprocess_target} INTERFACE ${juce_linux_subprocess_helper_binary_dir})
+    target_compile_definitions(${embedded_linux_subprocess_target} INTERFACE JUCE_USE_EXTERNAL_TEMPORARY_SUBPROCESS=1)
+    add_library(juce::${embedded_linux_subprocess_target} ALIAS ${embedded_linux_subprocess_target})
+
+    set_directory_properties(PROPERTIES ${target_directory_key} ${embedded_linux_subprocess_target})
+    set(${output_target_name} juce::${embedded_linux_subprocess_target} PARENT_SCOPE)
+endfunction()
+
+function(juce_link_with_embedded_linux_subprocess target)
+    _juce_create_embedded_linux_subprocess_target(embedded_linux_subprocess_target ${target})
+    target_link_libraries(${target} PRIVATE ${embedded_linux_subprocess_target})
+endfunction()
+
+# ==================================================================================================
+
 # Ideally, we'd check the preprocessor defs on the target to see whether
 # JUCE_USE_CURL, JUCE_WEB_BROWSER, or JUCE_IN_APP_PURCHASES have been explicitly turned off,
 # and then link libraries as appropriate.
@@ -167,6 +247,12 @@ function(_juce_link_optional_libraries target)
 
         if(needs_browser)
             target_link_libraries(${target} PRIVATE juce::pkgconfig_JUCE_BROWSER_LINUX_DEPS)
+
+            get_target_property(is_plugin ${target} JUCE_IS_PLUGIN)
+
+            if(is_plugin)
+                juce_link_with_embedded_linux_subprocess(${target})
+            endif()
         endif()
     elseif(APPLE)
         get_target_property(needs_storekit ${target} JUCE_NEEDS_STORE_KIT)
@@ -270,6 +356,7 @@ function(_juce_write_configure_time_info target)
     _juce_append_target_property(file_content APP_GROUP_IDS                        ${target} JUCE_APP_GROUP_IDS)
     _juce_append_target_property(file_content IS_PLUGIN                            ${target} JUCE_IS_PLUGIN)
     _juce_append_target_property(file_content ICLOUD_PERMISSIONS_ENABLED           ${target} JUCE_ICLOUD_PERMISSIONS_ENABLED)
+    _juce_append_target_property(file_content IS_AU_PLUGIN_HOST                    ${target} JUCE_PLUGINHOST_AU)
 
     if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
         _juce_append_record(file_content IS_IOS 1)
@@ -351,7 +438,7 @@ function(juce_add_binary_data target)
         COMMAND juce::juceaide binarydata "${JUCE_ARG_NAMESPACE}" "${JUCE_ARG_HEADER_NAME}"
             ${juce_binary_data_folder} "${input_file_list}"
         WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-        DEPENDS "${input_file_list}"
+        DEPENDS "${input_file_list}" ${JUCE_ARG_SOURCES}
         VERBATIM)
 
     target_sources(${target} PRIVATE "${binary_file_names}")
@@ -845,10 +932,9 @@ function(_juce_add_lv2_manifest_helper_target)
     add_executable(juce::juce_lv2_helper ALIAS juce_lv2_helper)
     target_compile_features(juce_lv2_helper PRIVATE cxx_std_17)
     set_target_properties(juce_lv2_helper PROPERTIES BUILD_WITH_INSTALL_RPATH ON)
-    target_link_libraries(juce_lv2_helper PRIVATE ${CMAKE_DL_LIBS})
     set(THREADS_PREFER_PTHREAD_FLAG ON)
     find_package(Threads REQUIRED)
-    target_link_libraries(juce_lv2_helper PRIVATE Threads::Threads)
+    target_link_libraries(juce_lv2_helper PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
 endfunction()
 
 # ==================================================================================================
@@ -1296,6 +1382,12 @@ function(_juce_set_fallback_properties target)
 
     get_target_property(real_company_name ${target} JUCE_COMPANY_NAME)
     _juce_set_property_if_not_set(${target} BUNDLE_ID "com.${real_company_name}.${target}")
+
+    get_target_property(applied_bundle_id ${target} JUCE_BUNDLE_ID)
+
+    if("${applied_bundle_id}" MATCHES ".* .*")
+        message(WARNING "Target ${target} has JUCE_BUNDLE_ID '${applied_bundle_id}', which contains spaces. Use the BUNDLE_ID option to specify a valid ID.")
+    endif()
 
     _juce_set_property_if_not_set(${target} VERSION ${PROJECT_VERSION})
 
@@ -1892,11 +1984,15 @@ function(juce_add_pip header)
                 list(APPEND extra_formats VST)
             endif()
 
+            if(NOT (CMAKE_SYSTEM_NAME MATCHES ".*BSD"))
+                list(APPEND extra_formats VST3)
+            endif()
+
             # Standalone plugins might want to access the mic
             list(APPEND extra_target_args MICROPHONE_PERMISSION_ENABLED TRUE)
 
             juce_add_plugin(${JUCE_PIP_NAME}
-                FORMATS AU AUv3 LV2 Standalone Unity VST3 ${extra_formats}
+                FORMATS AU AUv3 LV2 Standalone Unity ${extra_formats}
                 ${extra_target_args})
         endif()
     elseif(pip_kind STREQUAL "Component")
@@ -1996,12 +2092,7 @@ function(juce_set_aax_sdk_path path)
         message(FATAL_ERROR "Could not find AAX SDK at the specified path: ${path}")
     endif()
 
-    if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-        add_library(juce_aax_sdk STATIC IMPORTED GLOBAL)
-        set_target_properties(juce_aax_sdk PROPERTIES
-            IMPORTED_LOCATION_DEBUG "${path}/Libs/Debug/libAAXLibrary_libcpp.a"
-            IMPORTED_LOCATION "${path}/Libs/Release/libAAXLibrary_libcpp.a")
-    elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    if((CMAKE_SYSTEM_NAME STREQUAL "Darwin") OR (CMAKE_SYSTEM_NAME STREQUAL "Windows"))
         add_library(juce_aax_sdk INTERFACE IMPORTED GLOBAL)
     else()
         return()
@@ -2011,7 +2102,6 @@ function(juce_set_aax_sdk_path path)
         "${path}"
         "${path}/Interfaces"
         "${path}/Interfaces/ACF")
-    target_compile_definitions(juce_aax_sdk INTERFACE JucePlugin_AAXLibs_path="${path}/Libs")
     set_target_properties(juce_aax_sdk PROPERTIES INTERFACE_JUCE_AAX_DEFAULT_ICON "${path}/Utilities/PlugIn.ico")
 endfunction()
 
