@@ -23,23 +23,11 @@
   ==============================================================================
 */
 
-#include <juce_core/system/juce_TargetPlatform.h>
-#include "../utility/juce_CheckSettingMacros.h"
+namespace juce
+{
 
-#if JucePlugin_Enable_ARA
-
-#include "../utility/juce_IncludeSystemHeaders.h"
-#include "../utility/juce_IncludeModuleHeaders.h"
-
-JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wunused-parameter", "-Wgnu-zero-variadic-macro-arguments", "-Wmissing-prototypes")
-JUCE_BEGIN_IGNORE_WARNINGS_MSVC (4100)
-
-#include <ARA_Library/PlugIn/ARAPlug.cpp>
-#include <ARA_Library/Dispatch/ARAPlugInDispatch.cpp>
-#include <ARA_Library/Utilities/ARAPitchInterpretation.cpp>
-#include <ARA_Library/Utilities/ARAChannelArrangement.cpp>
-
-JUCE_END_IGNORE_WARNINGS_MSVC
-JUCE_END_IGNORE_WARNINGS_GCC_LIKE
-
+#if ! JUCE_NATIVE_ACCESSIBILITY_INCLUDED
+ class AccessibilityHandler::AccessibilityNativeImpl { public: AccessibilityNativeImpl (AccessibilityHandler&) {} };
 #endif
+
+} // namespace juce

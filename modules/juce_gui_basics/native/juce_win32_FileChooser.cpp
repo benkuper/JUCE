@@ -27,7 +27,10 @@ namespace juce
 {
 
 // Implemented in juce_win32_Messaging.cpp
+namespace detail
+{
 bool dispatchNextMessageOnSystemQueue (bool returnIfNoPendingMessages);
+} // namespace detail
 
 class Win32NativeFileChooser  : private Thread
 {
@@ -77,7 +80,7 @@ public:
 
         while (isThreadRunning())
         {
-            if (! dispatchNextMessageOnSystemQueue (true))
+            if (! detail::dispatchNextMessageOnSystemQueue (true))
                 Thread::sleep (1);
         }
     }
@@ -578,19 +581,20 @@ private:
 
     String getDefaultFileExtension (const String& filename) const
     {
-        auto extension = filename.fromLastOccurrenceOf (".", false, false);
+        const auto extension = filename.contains (".") ? filename.fromLastOccurrenceOf (".", false, false)
+                                                       : String();
 
-        if (extension.isEmpty())
-        {
-            auto tokens = StringArray::fromTokens (filtersString, ";,", "\"'");
-            tokens.trim();
-            tokens.removeEmptyStrings();
+        if (! extension.isEmpty())
+            return extension;
 
-            if (tokens.size() == 1 && tokens[0].removeCharacters ("*.").isNotEmpty())
-                extension = tokens[0].fromFirstOccurrenceOf (".", false, false);
-        }
+        auto tokens = StringArray::fromTokens (filtersString, ";,", "\"'");
+        tokens.trim();
+        tokens.removeEmptyStrings();
 
-        return extension;
+        if (tokens.size() == 1 && tokens[0].removeCharacters ("*.").isNotEmpty())
+            return tokens[0].fromFirstOccurrenceOf (".", false, false);
+
+        return {};
     }
 
     //==============================================================================
@@ -789,7 +793,7 @@ public:
                    0, 0);
 
         setOpaque (true);
-        setAlwaysOnTop (juce_areThereAnyAlwaysOnTopWindows());
+        setAlwaysOnTop (detail::WindowingHelpers::areThereAnyAlwaysOnTopWindows());
         addToDesktop (0);
     }
 

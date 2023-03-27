@@ -23,22 +23,27 @@
   ==============================================================================
 */
 
-#include <juce_audio_plugin_client/juce_audio_plugin_client.h>
-#include "juce_CreatePluginFilter.h"
-
-namespace juce
+namespace juce::detail
 {
-    #define Component juce::Component
 
-   #if JUCE_MAC
-    #define Point juce::Point
-    void repostCurrentNSEvent();
-   #endif
+struct ViewportHelpers
+{
+    ViewportHelpers() = delete;
 
-    //==============================================================================
-    inline const PluginHostType& getHostType()
+    static bool wouldScrollOnEvent (const Viewport* vp, const MouseInputSource& src)
     {
-        static PluginHostType hostType;
-        return hostType;
+        if (vp != nullptr)
+        {
+            switch (vp->getScrollOnDragMode())
+            {
+                case Viewport::ScrollOnDragMode::all:           return true;
+                case Viewport::ScrollOnDragMode::nonHover:      return ! src.canHover();
+                case Viewport::ScrollOnDragMode::never:         return false;
+            }
+        }
+
+        return false;
     }
-}
+};
+
+} // namespace juce::detail

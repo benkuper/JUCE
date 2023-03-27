@@ -23,4 +23,4 @@
   ==============================================================================
 */
 
-#include "VST/juce_VST_Wrapper.mm"
+#include "juce_audio_plugin_client_VST3.cpp"
