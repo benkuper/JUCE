@@ -1413,16 +1413,6 @@ namespace juce
 		allowsClicksOnChildComponents = flags.allowChildMouseClicksFlag;
 	}
 
-	void Component::setDisableDefaultMouseEvents(bool value) noexcept
-	{
-		flags.disableDefaultMouseEvents = value;
-	}
-
-	bool Component::getDisableDefaultMouseEvents() const noexcept
-	{
-		return flags.disableDefaultMouseEvents;
-	}
-
 	bool Component::contains(Point<int> point)
 	{
 		return contains(point.toFloat());
