@@ -244,36 +244,36 @@ public:
             const int h = parent->getItemHeight();
             const int space = h / 4;
 
+
+            if (outputDeviceDropDown != nullptr)
+            {
+                if (testButton != nullptr)
+                {
+                    testButton->changeWidthToFitText(h);
+                }
+            }
+
+            if (inputDeviceDropDown != nullptr)
+            {
+                auto row = r.removeFromTop(h);
+
+                inputLevelMeter->setBounds(row.removeFromRight(testButton != nullptr ? testButton->getWidth() : row.getWidth() / 6));
+                row.removeFromRight(space);
+                inputDeviceDropDown->setBounds(row);
+                r.removeFromTop(space);
+            }
+
             if (outputDeviceDropDown != nullptr)
             {
                 auto row = r.removeFromTop (h);
 
                 if (testButton != nullptr)
                 {
-                    testButton->changeWidthToFitText (h);
-                    testButton->setBounds (row.removeFromRight (testButton->getWidth()));
-                    row.removeFromRight (space);
+                    testButton->setBounds(row.removeFromRight(testButton->getWidth()));
+                    row.removeFromRight(space);
                 }
 
                 outputDeviceDropDown->setBounds (row);
-                r.removeFromTop (space);
-            }
-
-            if (inputDeviceDropDown != nullptr)
-            {
-                auto row = r.removeFromTop (h);
-
-                inputLevelMeter->setBounds (row.removeFromRight (testButton != nullptr ? testButton->getWidth() : row.getWidth() / 6));
-                row.removeFromRight (space);
-                inputDeviceDropDown->setBounds (row);
-                r.removeFromTop (space);
-            }
-
-            if (outputChanList != nullptr)
-            {
-                outputChanList->setRowHeight (jmin (22, h));
-                outputChanList->setBounds (r.removeFromTop (outputChanList->getBestHeight (maxListBoxHeight)));
-                outputChanLabel->setBounds (0, outputChanList->getBounds().getCentreY() - h / 2, r.getX(), h);
                 r.removeFromTop (space);
             }
 
@@ -283,6 +283,14 @@ public:
                 inputChanList->setBounds (r.removeFromTop (inputChanList->getBestHeight (maxListBoxHeight)));
                 inputChanLabel->setBounds (0, inputChanList->getBounds().getCentreY() - h / 2, r.getX(), h);
                 r.removeFromTop (space);
+            }
+
+            if (outputChanList != nullptr)
+            {
+                outputChanList->setRowHeight(jmin(22, h));
+                outputChanList->setBounds(r.removeFromTop(outputChanList->getBestHeight(maxListBoxHeight)));
+                outputChanLabel->setBounds(0, outputChanList->getBounds().getCentreY() - h / 2, r.getX(), h);
+                r.removeFromTop(space);
             }
 
             r.removeFromTop (space * 2);
