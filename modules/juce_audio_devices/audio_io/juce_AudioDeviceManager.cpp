@@ -1163,7 +1163,7 @@ void AudioDeviceManager::handleIncomingMidiMessageInt (MidiInput* source, const 
 
         for (auto& mc : midiCallbacks)
             if (mc.deviceIdentifier.isEmpty() || mc.deviceIdentifier == source->getIdentifier())
-                mc.callback->handleIncomingMidiMessage (source, message);
+                    mc.callback->handleIncomingMidiMessage (source, message);
     }
 }
 
