@@ -35,16 +35,17 @@
 #include <juce_audio_processors/format_types/juce_LegacyAudioParameter.cpp>
 
 JUCE_BEGIN_IGNORE_WARNINGS_MSVC (4127 4512 4996)
-JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wnon-virtual-dtor",
-                                     "-Wsign-conversion",
+JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wdeprecated-declarations",
                                      "-Wextra-semi",
-                                     "-Wshift-sign-overflow",
-                                     "-Wpragma-pack",
-                                     "-Wzero-as-null-pointer-constant",
-                                     "-Winconsistent-missing-destructor-override",
+                                     "-Wfloat-equal",
                                      "-Wfour-char-constants",
+                                     "-Winconsistent-missing-destructor-override",
+                                     "-Wnon-virtual-dtor",
+                                     "-Wpragma-pack",
+                                     "-Wshift-sign-overflow",
+                                     "-Wsign-conversion",
                                      "-Wtautological-overlap-compare",
-                                     "-Wdeprecated-declarations")
+                                     "-Wzero-as-null-pointer-constant")
 
 #include <AAX_Version.h>
 
@@ -306,12 +307,10 @@ namespace AAXClasses
                 default:  break;
             }
 
-            // check for ambisonics support
-            auto sqrtMinusOne   = std::sqrt (static_cast<float> (numChannels)) - 1.0f;
-            auto ambisonicOrder = jmax (0, static_cast<int> (std::floor (sqrtMinusOne)));
+            const auto maybeAmbisonicOrder = AudioChannelSet::getAmbisonicOrderForNumChannels (numChannels);
 
-            if (static_cast<float> (ambisonicOrder) == sqrtMinusOne)
-                return stemFormatForAmbisonicOrder (ambisonicOrder);
+            if (maybeAmbisonicOrder != -1)
+                return stemFormatForAmbisonicOrder (maybeAmbisonicOrder);
 
             return AAX_eStemFormat_INT32_MAX;
         }
@@ -1006,7 +1005,7 @@ namespace AAXClasses
             {
                 auto newValue = static_cast<float> (value);
 
-                if (newValue != param->getValue())
+                if (! approximatelyEqual (newValue, param->getValue()))
                 {
                     param->setValue (newValue);
 

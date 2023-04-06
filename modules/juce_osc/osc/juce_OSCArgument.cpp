@@ -159,7 +159,7 @@ public:
             expect (! arg.isBlob());
             expect (! arg.isColour());
 
-            expect (arg.getFloat32() == value);
+            expectEquals (arg.getFloat32(), value);
         }
 
         beginTest ("String");

@@ -23,21 +23,20 @@
   ==============================================================================
 */
 
-namespace juce
-{
-    void sendAccessibilityAutomationEvent (const AccessibilityHandler&, EVENTID);
-    void sendAccessibilityPropertyChangedEvent (const AccessibilityHandler&, PROPERTYID, VARIANT);
-} // namespace juce
+package com.rmsl.juce;
 
-#include "juce_win32_UIAProviderBase.h"
-#include "juce_win32_UIAExpandCollapseProvider.h"
-#include "juce_win32_UIAGridItemProvider.h"
-#include "juce_win32_UIAGridProvider.h"
-#include "juce_win32_UIAInvokeProvider.h"
-#include "juce_win32_UIARangeValueProvider.h"
-#include "juce_win32_UIASelectionProvider.h"
-#include "juce_win32_UIATextProvider.h"
-#include "juce_win32_UIAToggleProvider.h"
-#include "juce_win32_UIATransformProvider.h"
-#include "juce_win32_UIAValueProvider.h"
-#include "juce_win32_UIAWindowProvider.h"
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+
+//==============================================================================
+public class Receiver extends BroadcastReceiver
+{
+    @Override
+    public void onReceive (Context context, Intent intent)
+    {
+        onBroadcastResultNative (intent.getIntExtra ("com.rmsl.juce.JUCE_REQUEST_CODE", 0));
+    }
+
+    private native void onBroadcastResultNative (int requestCode);
+}

@@ -206,6 +206,8 @@ LookAndFeel_V2::LookAndFeel_V2()
 
     for (int i = 0; i < numElementsInArray (standardColours); i += 2)
         setColour ((int) standardColours [i], Colour ((uint32) standardColours [i + 1]));
+
+    bubbleShadow.setShadowProperties (DropShadow (Colours::black.withAlpha (0.35f), 5, {}));
 }
 
 LookAndFeel_V2::~LookAndFeel_V2()  {}
@@ -839,6 +841,10 @@ void LookAndFeel_V2::drawBubble (Graphics& g, BubbleComponent& comp,
     g.strokePath (p, PathStrokeType (1.0f));
 }
 
+void LookAndFeel_V2::setComponentEffectForBubbleComponent (BubbleComponent& bubbleComponent)
+{
+    bubbleComponent.setComponentEffect (&bubbleShadow);
+}
 
 //==============================================================================
 Font LookAndFeel_V2::getPopupMenuFont()
@@ -1367,6 +1373,16 @@ void LookAndFeel_V2::drawLinearSliderBackground (Graphics& g, int x, int y, int 
     g.strokePath (indent, PathStrokeType (0.5f));
 }
 
+void LookAndFeel_V2::drawLinearSliderOutline (Graphics& g, int, int, int width, int height,
+                                              const Slider::SliderStyle, Slider& slider)
+{
+    if (slider.getTextBoxPosition() == Slider::NoTextBox)
+    {
+        g.setColour (slider.findColour (Slider::textBoxOutlineColourId));
+        g.drawRect (0, 0, width, height, 1);
+    }
+}
+
 void LookAndFeel_V2::drawLinearSliderThumb (Graphics& g, int x, int y, int width, int height,
                                             float sliderPos, float minSliderPos, float maxSliderPos,
                                             const Slider::SliderStyle style, Slider& slider)
@@ -1481,6 +1497,8 @@ void LookAndFeel_V2::drawLinearSlider (Graphics& g, int x, int y, int width, int
                               baseColour,
                               slider.isEnabled() ? 0.9f : 0.3f,
                               true, true, true, true);
+
+        drawLinearSliderOutline (g, x, y, width, height, style, slider);
     }
     else
     {
