@@ -340,7 +340,7 @@ bool OSCSender::sendToIPAddress (const String& host, int port, const OSCBundle& 
 //==============================================================================
 #if JUCE_UNIT_TESTS
 
-class OSCBinaryWriterTests  : public UnitTest
+class OSCBinaryWriterTests final : public UnitTest
 {
 public:
     OSCBinaryWriterTests()
@@ -669,7 +669,7 @@ public:
 static OSCBinaryWriterTests OSCBinaryWriterUnitTests;
 
 //==============================================================================
-class OSCRoundTripTests  : public UnitTest
+class OSCRoundTripTests final : public UnitTest
 {
 public:
     OSCRoundTripTests()

@@ -53,7 +53,7 @@ static NSView* getNSViewForDragEvent (Component* sourceComp)
     return nil;
 }
 
-class NSDraggingSourceHelper   : public ObjCClass<NSObject<NSDraggingSource>>
+class NSDraggingSourceHelper final : public ObjCClass<NSObject<NSDraggingSource>>
 {
 public:
     static void setText (id self, const String& text)
@@ -312,7 +312,7 @@ public:
     }
 
 private:
-    struct DelegateClass  : public ObjCClass<NSObject>
+    struct DelegateClass final : public ObjCClass<NSObject>
     {
         DelegateClass()  : ObjCClass<NSObject> ("JUCEDelegate_")
         {
@@ -333,7 +333,7 @@ std::unique_ptr<Desktop::NativeDarkModeChangeDetectorImpl> Desktop::createNative
 }
 
 //==============================================================================
-class ScreenSaverDefeater   : public Timer
+class ScreenSaverDefeater final : public Timer
 {
 public:
     ScreenSaverDefeater()
@@ -394,7 +394,7 @@ bool Desktop::isScreenSaverEnabled()
 }
 
 //==============================================================================
-struct DisplaySettingsChangeCallback  : private DeletedAtShutdown
+struct DisplaySettingsChangeCallback final : private DeletedAtShutdown
 {
     DisplaySettingsChangeCallback()
     {
@@ -410,8 +410,7 @@ struct DisplaySettingsChangeCallback  : private DeletedAtShutdown
     static void displayReconfigurationCallback (CGDirectDisplayID, CGDisplayChangeSummaryFlags, void* userInfo)
     {
         if (auto* thisPtr = static_cast<DisplaySettingsChangeCallback*> (userInfo))
-            if (thisPtr->forceDisplayUpdate != nullptr)
-                thisPtr->forceDisplayUpdate();
+            NullCheckedInvocation::invoke (thisPtr->forceDisplayUpdate);
     }
 
     std::function<void()> forceDisplayUpdate;
@@ -447,6 +446,17 @@ static Displays::Display getDisplayFromScreen (NSScreen* s, CGFloat& mainScreenB
     NSSize dpi = [[[s deviceDescription] objectForKey: NSDeviceResolution] sizeValue];
     d.dpi = (dpi.width + dpi.height) / 2.0;
 
+   #if defined (MAC_OS_VERSION_12_0) && MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_VERSION_12_0
+    if (@available (macOS 12.0, *))
+    {
+        const auto safeInsets = [s safeAreaInsets];
+        d.safeAreaInsets = detail::WindowingHelpers::roundToInt (BorderSize<double> { safeInsets.top,
+                                                                                      safeInsets.left,
+                                                                                      safeInsets.bottom,
+                                                                                      safeInsets.right }.multipliedBy (1.0 / (double) masterScale));
+    }
+   #endif
+
     return d;
 }
 
@@ -462,16 +472,6 @@ void Displays::findDisplays (const float masterScale)
         for (NSScreen* s in [NSScreen screens])
             displays.add (getDisplayFromScreen (s, mainScreenBottom, masterScale));
     }
-}
-
-//==============================================================================
-bool detail::WindowingHelpers::areThereAnyAlwaysOnTopWindows()
-{
-    for (NSWindow* window in [NSApp windows])
-        if ([window level] > NSNormalWindowLevel)
-            return true;
-
-    return false;
 }
 
 //==============================================================================
@@ -520,10 +520,24 @@ static Image createNSWindowSnapshot (NSWindow* nsWindow)
 {
     JUCE_AUTORELEASEPOOL
     {
+        // CGWindowListCreateImage is replaced by functions in the ScreenCaptureKit framework, but
+        // that framework is only available from macOS 12.3 onwards.
+        // A suitable @available check should be added once the minimum build OS is 12.3 or greater,
+        // so that ScreenCaptureKit can be weak-linked.
+       #if defined (MAC_OS_VERSION_14_0) && MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_VERSION_14_0
+        JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wdeprecated-declarations")
+        #define JUCE_DEPRECATION_IGNORED 1
+       #endif
+
         CGImageRef screenShot = CGWindowListCreateImage (CGRectNull,
                                                          kCGWindowListOptionIncludingWindow,
                                                          (CGWindowID) [nsWindow windowNumber],
                                                          kCGWindowImageBoundsIgnoreFraming);
+
+       #if JUCE_DEPRECATION_IGNORED
+        JUCE_END_IGNORE_WARNINGS_GCC_LIKE
+        #undef JUCE_DEPRECATION_IGNORED
+       #endif
 
         NSBitmapImageRep* bitmapRep = [[NSBitmapImageRep alloc] initWithCGImage: screenShot];
 
@@ -569,15 +583,6 @@ void SystemClipboard::copyTextToClipboard (const String& text)
 String SystemClipboard::getTextFromClipboard()
 {
     return nsStringToJuce ([[NSPasteboard generalPasteboard] stringForType: NSPasteboardTypeString]);
-}
-
-void Process::setDockIconVisible (bool isVisible)
-{
-    ProcessSerialNumber psn { 0, kCurrentProcess };
-
-    [[maybe_unused]] OSStatus err = TransformProcessType (&psn, isVisible ? kProcessTransformToForegroundApplication
-                                                                          : kProcessTransformToUIElementApplication);
-    jassert (err == 0);
 }
 
 } // namespace juce

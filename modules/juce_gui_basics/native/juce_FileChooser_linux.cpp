@@ -44,8 +44,8 @@ static bool isSet (int flags, int toCheck)
     return (flags & toCheck) != 0;
 }
 
-class FileChooser::Native    : public FileChooser::Pimpl,
-                               private Timer
+class FileChooser::Native final : public FileChooser::Pimpl,
+                                  private Timer
 {
 public:
     Native (FileChooser& fileChooser, int flags)
@@ -207,8 +207,21 @@ private:
         args.add ("zenity");
         args.add ("--file-selection");
 
-        if (warnAboutOverwrite)
-            args.add("--confirm-overwrite");
+        const auto getUnderstandsConfirmOverwrite = []
+        {
+            // --confirm-overwrite is deprecated in zenity 3.91 and higher
+            ChildProcess process;
+            process.start ("zenity --version");
+            process.waitForProcessToFinish (1000);
+            const auto versionString = process.readAllProcessOutput();
+            const auto version = StringArray::fromTokens (versionString.trim(), ".", "");
+            return version.size() >= 2
+                   && (version[0].getIntValue() < 3
+                       || (version[0].getIntValue() == 3 && version[1].getIntValue() < 91));
+        };
+
+        if (warnAboutOverwrite && getUnderstandsConfirmOverwrite())
+            args.add ("--confirm-overwrite");
 
         if (owner.title.isNotEmpty())
             args.add ("--title=" + owner.title);

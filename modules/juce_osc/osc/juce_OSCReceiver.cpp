@@ -426,10 +426,10 @@ namespace juce
 			realtimeListeners.remove(listenerToRemove);
 		}
 
-		void removeListener(ListenerWithOSCAddress<MessageLoopCallback>* listenerToRemove)
-		{
-			removeListenerWithAddress(listenerToRemove, listenersWithAddress);
-		}
+    //==============================================================================
+    struct CallbackMessage final : public Message
+    {
+        CallbackMessage (OSCBundle::Element oscElement)  : content (oscElement) {}
 
 		void removeListener(ListenerWithOSCAddress<RealtimeCallback>* listenerToRemove)
 		{
@@ -465,8 +465,16 @@ namespace juce
 				// on this thread:
 				callRealtimeListeners(content);
 
-				if (content.isMessage())
-					callRealtimeListenersWithAddress(content.getMessage());
+            // now post the message that will trigger the handleMessage callback
+            // dealing with the non-realtime listeners.
+            if (listeners.size() > 0 || listenersWithAddress.size() > 0)
+                postMessage (new CallbackMessage (content));
+        }
+        catch (const OSCFormatError&)
+        {
+            NullCheckedInvocation::invoke (formatErrorHandler, data, (int) dataSize);
+        }
+    }
 
 				// now post the message that will trigger the handleMessage callback
 				// dealing with the non-realtime listeners.
@@ -713,12 +721,12 @@ namespace juce
 	//==============================================================================
 #if JUCE_UNIT_TESTS
 
-	class OSCInputStreamTests : public UnitTest
-	{
-	public:
-		OSCInputStreamTests()
-			: UnitTest("OSCInputStream class", UnitTestCategories::osc)
-		{}
+class OSCInputStreamTests final : public UnitTest
+{
+public:
+    OSCInputStreamTests()
+        : UnitTest ("OSCInputStream class", UnitTestCategories::osc)
+    {}
 
 		void runTest()
 		{

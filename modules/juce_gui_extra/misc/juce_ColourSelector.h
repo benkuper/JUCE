@@ -136,27 +136,22 @@ namespace juce
             labelTextColourId = 0x1007001     /**< the colour used for the labels next to the sliders. */
         };
 
-        //==============================================================================
-        // These need to be public otherwise the Projucer's live-build engine will complain
-        class ColourSpaceView;
-        class HueSelectorComp;
-        class ValueSelectorComp;
-        class ColourPreviewComp;
+private:
+    //==============================================================================
+    class SwatchComponent;
+    class ColourSpaceView;
+    class HueSelectorComp;
+    class ColourPreviewComp;
 
-    private:
-        //==============================================================================
-        class SwatchComponent;
-
-        Colour colour;
-        float h, s, v;
-        std::unique_ptr<Slider> sliders[4];
-        std::unique_ptr<Label> hexColorLabel;
-        std::unique_ptr<ColourSpaceView> colourSpace;
-        std::unique_ptr<ValueSelectorComp> valueSelector;
-        std::unique_ptr<ColourPreviewComp> previewComponent;
-        OwnedArray<SwatchComponent> swatchComponents;
-        const int flags;
-        int edgeGap;
+    Colour colour;
+    float h, s, v;
+    std::unique_ptr<Slider> sliders[4];
+    std::unique_ptr<ColourSpaceView> colourSpace;
+    std::unique_ptr<HueSelectorComp> hueSelector;
+    std::unique_ptr<ColourPreviewComp> previewComponent;
+    OwnedArray<SwatchComponent> swatchComponents;
+    const int flags;
+    int edgeGap;
 
         void setHue(float newH);
         void setValue(float newV);

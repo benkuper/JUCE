@@ -39,7 +39,7 @@ CallOutBox::CallOutBox (Component& c, Rectangle<int> area, Component* const pare
     }
     else
     {
-        setAlwaysOnTop (detail::WindowingHelpers::areThereAnyAlwaysOnTopWindows());
+        setAlwaysOnTop (WindowUtils::areThereAnyAlwaysOnTopWindows());
         updatePosition (area, Desktop::getInstance().getDisplays().getDisplayForRect (area)->userArea);
         addToDesktop (ComponentPeer::windowIsTemporary);
 
@@ -50,8 +50,8 @@ CallOutBox::CallOutBox (Component& c, Rectangle<int> area, Component* const pare
 }
 
 //==============================================================================
-class CallOutBoxCallback  : public ModalComponentManager::Callback,
-                            private Timer
+class CallOutBoxCallback final : public ModalComponentManager::Callback,
+                                 private Timer
 {
 public:
     CallOutBoxCallback (std::unique_ptr<Component> c, const Rectangle<int>& area, Component* parent)

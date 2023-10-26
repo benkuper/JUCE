@@ -153,7 +153,7 @@ public:
         else
         {
             // Command buffers are usually considered temporary, and are automatically released by
-            // the operating system when the rendering pipeline is finsihed. However, we want to keep
+            // the operating system when the rendering pipeline is finished. However, we want to keep
             // this one alive so that we can wait for pipeline completion in the destructor.
             memoryBlitCommandBuffer.reset ([[commandQueue.get() commandBuffer] retain]);
 
@@ -310,7 +310,7 @@ private:
 
                 if (alignedSize > size)
                 {
-                    size = std::max (alignedSize, alignTo ((size_t) (size * growthFactor), pagesize));
+                    size = std::max (alignedSize, alignTo ((size_t) ((float) size * growthFactor), pagesize));
                     allocation = std::make_unique<AllocationWrapper> (pagesize, size);
                 }
 

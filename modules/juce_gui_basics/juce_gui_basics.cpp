@@ -49,7 +49,6 @@
 
 //==============================================================================
 #if JUCE_MAC
- #import <WebKit/WebKit.h>
  #import <IOKit/pwr_mgt/IOPMLib.h>
  #import <MetalKit/MetalKit.h>
 
@@ -139,10 +138,12 @@
 
 #if JUCE_MAC || JUCE_IOS
  #include "native/accessibility/juce_AccessibilitySharedCode_mac.mm"
+ #include "native/juce_CGMetalLayerRenderer_mac.h"
 
  #if JUCE_IOS
   #include "native/juce_UIViewComponentPeer_ios.mm"
   #include "native/accessibility/juce_Accessibility_ios.mm"
+  #include "native/juce_WindowUtils_ios.mm"
   #include "native/juce_Windowing_ios.mm"
   #include "native/juce_NativeMessageBox_ios.mm"
   #include "native/juce_NativeModalWrapperComponent_ios.h"
@@ -156,6 +157,7 @@
   #include "native/accessibility/juce_Accessibility_mac.mm"
   #include "native/juce_PerScreenDisplayLinks_mac.h"
   #include "native/juce_NSViewComponentPeer_mac.mm"
+  #include "native/juce_WindowUtils_mac.mm"
   #include "native/juce_Windowing_mac.mm"
   #include "native/juce_NativeMessageBox_mac.mm"
   #include "native/juce_MainMenu_mac.mm"
@@ -165,6 +167,9 @@
  #include "native/juce_MouseCursor_mac.mm"
 
 #elif JUCE_WINDOWS
+ #if JUCE_MODULE_AVAILABLE_juce_audio_plugin_client
+  #include <juce_audio_plugin_client/AAX/juce_AAX_Modifier_Injector.h>
+ #endif
  #include "native/accessibility/juce_ComInterfaces_windows.h"
  #include "native/accessibility/juce_WindowsUIAWrapper_windows.h"
  #include "native/accessibility/juce_AccessibilityElement_windows.h"
@@ -172,7 +177,10 @@
  #include "native/accessibility/juce_UIAProviders_windows.h"
  #include "native/accessibility/juce_AccessibilityElement_windows.cpp"
  #include "native/accessibility/juce_Accessibility_windows.cpp"
+ #include "native/juce_WindowsHooks_windows.h"
+ #include "native/juce_WindowUtils_windows.cpp"
  #include "native/juce_Windowing_windows.cpp"
+ #include "native/juce_WindowsHooks_windows.cpp"
  #include "native/juce_NativeMessageBox_windows.cpp"
  #include "native/juce_DragAndDrop_windows.cpp"
  #include "native/juce_FileChooser_windows.cpp"
@@ -184,6 +192,7 @@
  JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wzero-as-null-pointer-constant")
 
  #include "native/juce_ScopedWindowAssociation_linux.h"
+ #include "native/juce_WindowUtils_linux.cpp"
  #include "native/juce_Windowing_linux.cpp"
  #include "native/juce_NativeMessageBox_linux.cpp"
  #include "native/juce_XWindowSystem_linux.cpp"
@@ -196,6 +205,7 @@
 
  #include "juce_core/files/juce_common_MimeTypes.h"
  #include "native/accessibility/juce_Accessibility_android.cpp"
+ #include "native/juce_WindowUtils_android.cpp"
  #include "native/juce_Windowing_android.cpp"
  #include "native/juce_NativeMessageBox_android.cpp"
  #include "native/juce_FileChooser_android.cpp"
@@ -263,6 +273,7 @@
 #include "keyboard/juce_ModifierKeys.cpp"
 #include "layout/juce_ComponentAnimator.cpp"
 #include "layout/juce_ComponentBoundsConstrainer.cpp"
+#include "layout/juce_BorderedComponentBoundsConstrainer.cpp"
 #include "layout/juce_ComponentBuilder.cpp"
 #include "layout/juce_ComponentMovementWatcher.cpp"
 #include "layout/juce_ConcertinaPanel.cpp"
@@ -343,4 +354,4 @@
 #include "windows/juce_ThreadWithProgressWindow.cpp"
 #include "windows/juce_TooltipWindow.cpp"
 #include "windows/juce_TopLevelWindow.cpp"
-#include "windows/juce_VBlankAttachement.cpp"
+#include "windows/juce_VBlankAttachment.cpp"

@@ -1913,10 +1913,27 @@ public:
         focusChangedDirectly        /**< Means that the focus was changed by a call to grabKeyboardFocus(). */
     };
 
+    /** Enumeration used by the focusGainedWithDirection() method. */
+    enum class FocusChangeDirection
+    {
+        unknown,
+        forward,
+        backward
+    };
+
     /** Called to indicate that this component has just acquired the keyboard focus.
         @see focusLost, setWantsKeyboardFocus, getCurrentlyFocusedComponent, hasKeyboardFocus
     */
     virtual void focusGained (FocusChangeType cause);
+
+    /** Called to indicate that this component has just acquired the keyboard focus.
+
+        This function is called every time focusGained() is called but it has an additional change
+        direction parameter.
+
+        @see focusLost, setWantsKeyboardFocus, getCurrentlyFocusedComponent, hasKeyboardFocus
+    */
+    virtual void focusGainedWithDirection (FocusChangeType cause, FocusChangeDirection direction);
 
     /** Called to indicate that this component has just lost the keyboard focus.
         @see focusGained, setWantsKeyboardFocus, getCurrentlyFocusedComponent, hasKeyboardFocus
@@ -2133,13 +2150,14 @@ public:
         The callback is an optional object which will receive a callback when the modal
         component loses its modal status, either by being hidden or when exitModalState()
         is called. If you pass an object in here, the system will take care of deleting it
-        later, after making the callback
+        later, after making the callback.
 
         If deleteWhenDismissed is true, then when it is dismissed, the component will be
         deleted and then the callback will be called. (This will safely handle the situation
         where the component is deleted before its exitModalState() method is called).
 
-        @see exitModalState, runModalLoop, ModalComponentManager::attachCallback
+        @see exitModalState, runModalLoop, ModalComponentManager::attachCallback,
+             ModalCallbackFunction
     */
     void enterModalState (bool takeKeyboardFocus = true,
                           ModalComponentManager::Callback* callback = nullptr,
@@ -2631,13 +2649,13 @@ private:
     void internalMouseEnter (MouseInputSource, Point<float>, Time);
     void internalMouseExit  (MouseInputSource, Point<float>, Time);
     void internalMouseDown  (MouseInputSource, const detail::PointerState&, Time);
-    void internalMouseUp    (MouseInputSource, const detail::PointerState&, Time, const ModifierKeys oldModifiers);
+    void internalMouseUp    (MouseInputSource, const detail::PointerState&, Time, ModifierKeys oldModifiers);
     void internalMouseDrag  (MouseInputSource, const detail::PointerState&, Time);
     void internalMouseMove  (MouseInputSource, Point<float>, Time);
     void internalMouseWheel (MouseInputSource, Point<float>, Time, const MouseWheelDetails&);
     void internalMagnifyGesture (MouseInputSource, Point<float>, Time, float);
     void internalBroughtToFront();
-    void internalKeyboardFocusGain (FocusChangeType, const WeakReference<Component>&);
+    void internalKeyboardFocusGain (FocusChangeType, const WeakReference<Component>&, FocusChangeDirection);
     void internalKeyboardFocusGain (FocusChangeType);
     void internalKeyboardFocusLoss (FocusChangeType);
     void internalChildKeyboardFocusChange (FocusChangeType, const WeakReference<Component>&);
@@ -2655,8 +2673,8 @@ private:
     void sendMovedResizedMessagesIfPending();
     void repaintParent();
     void sendFakeMouseMove() const;
-    void takeKeyboardFocus (FocusChangeType);
-    void grabKeyboardFocusInternal (FocusChangeType, bool canTryParent);
+    void takeKeyboardFocus (FocusChangeType, FocusChangeDirection);
+    void grabKeyboardFocusInternal (FocusChangeType, bool canTryParent, FocusChangeDirection);
     void giveAwayKeyboardFocusInternal (bool sendFocusLossEvent);
     void sendEnablementChangeMessage();
     void sendVisibilityChangeMessage();

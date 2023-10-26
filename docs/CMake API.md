@@ -454,6 +454,11 @@ attributes directly to these creation functions, rather than adding them later.
 - A set of space-separated paths that will be added to this target's entitlements plist for
   accessing read/write absolute paths if `APP_SANDBOX_ENABLED` is `TRUE`.
 
+`APP_SANDBOX_EXCEPTION_IOKIT`
+- A set of space-separated strings specifying IOUserClient subclasses to open or to set properties 
+  on. These will be added to this target's entitlements plist if `APP_SANDBOX_ENABLED` is `TRUE`. 
+  For more information see Apple's IOKit User Client Class Temporary Exception documentation.
+
 `PLIST_TO_MERGE`
 - A string to insert into an app/plugin's Info.plist.
 
@@ -508,6 +513,17 @@ attributes directly to these creation functions, rather than adding them later.
 `AAX_IDENTIFIER`
 - The bundle ID for the AAX plugin target. Matches the `BUNDLE_ID` by default.
 
+`LV2URI`
+- This is a string that acts as a unique identifier for an LV2 plugin. If you make any incompatible 
+  changes to your plugin (remove parameters, reorder parameters, change preset format etc.) you MUST
+  change this value. LV2 hosts will assume that any plugins with the same URI are interchangeable.
+  By default, the value of this property will be generated based on the COMPANY_WEBSITE and
+  PLUGIN_NAME. However, in some circumstances, such as the following, you'll need to override the
+  default:
+  - The plugin name contains characters such as spaces that are invalid in a URI; or
+  - The COMPANY_WEBSITE omits the leading scheme identifier (http://); or
+  - There's no website associated with the plugin, so you want to use a 'urn:' identifier instead.
+
 `VST_NUM_MIDI_INS`
 - For VST2 and VST3 plugins that accept midi, this allows you to configure the number of inputs.
 
@@ -516,7 +532,7 @@ attributes directly to these creation functions, rather than adding them later.
 
 `VST2_CATEGORY`
 - Should be one of: `kPlugCategUnknown`, `kPlugCategEffect`, `kPlugCategSynth`,
-  `kPlugCategAnalysis`, `kPlugCategMatering`, `kPlugCategSpacializer`, `kPlugCategRoomFx`,
+  `kPlugCategAnalysis`, `kPlugCategMastering`, `kPlugCategSpacializer`, `kPlugCategRoomFx`,
   `kPlugSurroundFx`, `kPlugCategRestoration`, `kPlugCategOfflineProcess`, `kPlugCategShell`,
   `kPlugCategGenerator`.
 
@@ -526,17 +542,6 @@ attributes directly to these creation functions, rather than adding them later.
   `Modulation`, `Mono`, `Network`, `NoOfflineProcess`, `OnlyOfflineProcess`, `OnlyRT`,
   `Pitch Shift`, `Restoration`, `Reverb`, `Sampler`, `Spatial`, `Stereo`, `Surround`, `Synth`,
   `Tools`, `Up-Downmix`
-
-`VST3_MANIFEST_ENABLED`
-- May be either TRUE or FALSE. Defaults to FALSE. Set this to TRUE if you want a moduleinfo.json
-  file to be generated as part of the VST3 build. This may improve startup/scanning time for hosts
-  that understand the contents of this file. This setting is disabled by default because the
-  moduleinfo.json path can cause problems during code signing on macOS. Bundles containing a
-  moduleinfo.json may be rejected by code signing verification at any point in the future without
-  notice per https://developer.apple.com/library/archive/technotes/tn2206. If you enable this
-  setting, be aware that the code signature for the moduleinfo.json will be stored in its extended
-  file attributes. Therefore, you will need to ensure that these attributes are not changed or
-  removed when distributing the VST3.
 
 `AU_MAIN_TYPE`
 - Should be one of: `kAudioUnitType_Effect`, `kAudioUnitType_FormatConverter`,
@@ -655,6 +660,17 @@ attributes directly to these creation functions, rather than adding them later.
   `kARAPlaybackTransformationContentBasedFadeAtTail`,
   `kARAPlaybackTransformationContentBasedFadeAtHead`
 
+`VST3_AUTO_MANIFEST`
+- May be either TRUE or FALSE (defaults to TRUE). When TRUE, a POST_BUILD step will be added to the
+  VST3 target which will generate a moduleinfo.json file into the Resources subdirectory of the
+  plugin bundle. This is normally desirable, but does require that the plugin can be successfully
+  loaded immediately after building the VST3 target. If the plugin needs further processing before
+  it can be loaded (e.g. custom signing), then set this option to FALSE to disable the automatic
+  manifest generation. To generate the manifest at a later point in the build, use the
+  `juce_enable_vst3_manifest_step` function. It is strongly recommended to generate a manifest for
+  your plugin, as this allows compatible hosts to scan the plugin much more quickly, leading to
+  an improved experience for users.
+
 #### `juce_add_binary_data`
 
     juce_add_binary_data(<name>
@@ -714,6 +730,19 @@ finally call `juce_enable_copy_plugin_step`.
 If your custom build steps need to use the location of the plugin artefact, you can extract this
 by querying the property `JUCE_PLUGIN_ARTEFACT_FILE` on a plugin target (*not* the shared code
 target!).
+
+#### `juce_enable_vst3_manifest_step`
+
+    juce_enable_vst3_manifest_step(<target>)
+
+You may call this function to manually enable VST3 manifest generation on a plugin. The argument to
+this function should be a target previously created with `juce_add_plugin`.
+
+VST3_AUTO_MANIFEST TRUE will cause the VST3 manifest to be generated immediately after building.
+This is not always appropriate, if extra build steps (such as signing or modifying the plugin
+bundle) must be executed before the plugin can be loaded. In such cases, you should set
+VST3_AUTO_MANIFEST FALSE, use `add_custom_command(TARGET POST_BUILD)` to add your own post-build
+steps, and then finally call `juce_enable_vst3_manifest_step`.
 
 #### `juce_set_<kind>_sdk_path`
 

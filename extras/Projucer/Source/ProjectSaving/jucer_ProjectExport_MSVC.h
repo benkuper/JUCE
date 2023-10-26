@@ -43,7 +43,7 @@ inline StringArray msBuildEscape (StringArray range)
 }
 
 //==============================================================================
-class MSVCProjectExporterBase   : public ProjectExporter
+class MSVCProjectExporterBase : public ProjectExporter
 {
 public:
     MSVCProjectExporterBase (Project& p, const ValueTree& t, String folderName)
@@ -154,8 +154,8 @@ public:
     }
 
     //==============================================================================
-    class MSVCBuildConfiguration  : public BuildConfiguration,
-                                    private Value::Listener
+    class MSVCBuildConfiguration final : public BuildConfiguration,
+                                         private Value::Listener
     {
     public:
         MSVCBuildConfiguration (Project& p, const ValueTree& settings, const ProjectExporter& e)
@@ -417,16 +417,16 @@ public:
     };
 
     //==============================================================================
-    class MSVCTargetBase : public build_tools::ProjectType::Target
+    class MSVCTarget final : public build_tools::ProjectType::Target
     {
     public:
-        MSVCTargetBase (build_tools::ProjectType::Target::Type targetType, const MSVCProjectExporterBase& exporter)
+        MSVCTarget (build_tools::ProjectType::Target::Type targetType, const MSVCProjectExporterBase& exporter)
             : build_tools::ProjectType::Target (targetType), owner (exporter)
         {
             projectGuid = createGUID (owner.getProject().getProjectUIDString() + getName());
         }
 
-        virtual ~MSVCTargetBase() {}
+        virtual ~MSVCTarget() {}
 
         String getProjectVersionString() const     { return "10.00"; }
         String getProjectFileSuffix() const        { return ".vcxproj"; }
@@ -565,7 +565,8 @@ public:
                     if (type != SharedCodeTarget)
                     {
                         auto librarySearchPaths = getLibrarySearchPaths (config);
-                        if (librarySearchPaths.size() > 0)
+
+                        if (! librarySearchPaths.isEmpty())
                         {
                             auto* libPath = props->createNewChildElement ("LibraryPath");
                             setConditionAttribute (*libPath, config);
@@ -798,12 +799,9 @@ public:
                 }
                 else if (type == VST3Helper)
                 {
-                    for (const auto& source : owner.getVST3HelperProgramSources (owner))
-                    {
-                        const auto location = owner.rebaseFromProjectFolderToBuildTarget (source)
-                                                   .toWindowsStyle();
-                        cppFiles->createNewChildElement ("ClCompile")->setAttribute ("Include", location);
-                    }
+                    const auto location = owner.rebaseFromProjectFolderToBuildTarget (owner.getVST3HelperProgramSource())
+                                               .toWindowsStyle();
+                    cppFiles->createNewChildElement ("ClCompile")->setAttribute ("Include", location);
                 }
             }
 
@@ -1024,8 +1022,8 @@ public:
                 bool filesWereAdded = false;
 
                 for (int i = 0; i < projectItem.getNumChildren(); ++i)
-                    if (addFilesToFilter (projectItem.getChild(i),
-                                          (path.isEmpty() ? String() : (path + "\\")) + projectItem.getChild(i).getName(),
+                    if (addFilesToFilter (projectItem.getChild (i),
+                                          (path.isEmpty() ? String() : (path + "\\")) + projectItem.getChild (i).getName(),
                                           cpps, headers, otherFiles, groups))
                         filesWereAdded = true;
 
@@ -1138,6 +1136,14 @@ public:
                 return result + "\\" + config.getTargetBinaryNameString() + ".lv2";
 
             return result;
+        }
+
+        /*  Like getConfigTargetPath, but expands $(ProjectName) so that build products can be used
+            in other projects where $(ProjectName) will expand to a different value.
+        */
+        String getExpandedConfigTargetPath (const MSVCBuildConfiguration& config) const
+        {
+            return getConfigTargetPath (config).replace ("$(ProjectName)", getOwner().getProjectFileBaseName (getName()));
         }
 
         String getIntermediatesPath (const MSVCBuildConfiguration& config) const
@@ -1296,7 +1302,7 @@ public:
 
             if (type == LV2PlugIn)
             {
-                const auto* writerTarget = [&]() -> MSVCTargetBase*
+                const auto* writerTarget = [&]() -> MSVCTarget*
                 {
                     for (auto* target : owner.targets)
                         if (target->type == LV2Helper)
@@ -1305,7 +1311,7 @@ public:
                     return nullptr;
                 }();
 
-                const auto writer = writerTarget->getConfigTargetPath (config)
+                const auto writer = writerTarget->getExpandedConfigTargetPath (config)
                                   + "\\"
                                   + writerTarget->getBinaryNameWithSuffix (config);
 
@@ -1326,7 +1332,7 @@ public:
 
                 const auto manifestScript = [&]() -> String
                 {
-                    const auto* writerTarget = [&]() -> MSVCTargetBase*
+                    const auto* writerTarget = [&]() -> MSVCTarget*
                     {
                         for (auto* target : owner.targets)
                             if (target->type == VST3Helper)
@@ -1338,21 +1344,24 @@ public:
                     if (writerTarget == nullptr)
                         return "";
 
-                    const auto writer = writerTarget->getConfigTargetPath (config)
+                    const auto writer = writerTarget->getExpandedConfigTargetPath (config)
                                       + "\\"
                                       + writerTarget->getBinaryNameWithSuffix (config);
 
                     // moduleinfotool doesn't handle Windows-style path separators properly when computing the bundle name
                     const auto normalisedBundlePath = getOwner().getOutDirFile (config, segments[0]).replace ("\\", "/");
+                    const auto contentsDir = normalisedBundlePath + "\\Contents";
+                    const auto resourceDir = contentsDir + "\\Resources";
 
-                    return "\r\n"
-                         + writer.quoted()
-                         + " -create -version "
-                         + getOwner().project.getVersionString().quoted()
-                         + " -path "
-                         + normalisedBundlePath.quoted()
-                         + " -output "
-                         + (getOwner().getOutDirFile (config, segments[0]) + "\\Contents\\moduleinfo.json").quoted();
+                    return "\r\ndel /s /q " + (contentsDir + "\\moduleinfo.json").quoted() + "\r\n"
+                           "if not exist \"" + resourceDir + "\\\" del /s /q " + resourceDir.quoted() + " && mkdir " + resourceDir.quoted() + "\r\n"
+                          + writer.quoted()
+                          + " -create -version "
+                          + getOwner().project.getVersionString().quoted()
+                          + " -path "
+                          + normalisedBundlePath.quoted()
+                          + " -output "
+                          + (resourceDir + "\\moduleinfo.json").quoted();
                 }();
 
                 const auto pkgScript = copyBuildOutputIntoBundle (segments);
@@ -1377,7 +1386,7 @@ public:
                 std::for_each (segments.begin(), std::prev (segments.end()), [&] (const auto& s)
                 {
                     directory += (directory.isEmpty() ? "" : "\\") + s;
-                    script += "if not exist \"" + directory + "\" mkdir \"" + directory + "\"\r\n";
+                    script += "if not exist \"" + directory + "\\\" del /s /q " + directory.quoted() + " && mkdir " + directory.quoted() + "\r\n";
                 });
 
                 return script;
@@ -1424,7 +1433,7 @@ public:
 
             if (type != SharedCodeTarget && type != LV2Helper && type != VST3Helper)
                 if (auto* shared = getOwner().getSharedCodeTarget())
-                    librarySearchPaths.add (shared->getConfigTargetPath (config));
+                    librarySearchPaths.add (shared->getExpandedConfigTargetPath (config));
 
             return librarySearchPaths;
         }
@@ -1639,7 +1648,7 @@ public:
         callForAllSupportedTargets ([this] (build_tools::ProjectType::Target::Type targetType)
                                     {
                                         if (targetType != build_tools::ProjectType::Target::AggregateTarget)
-                                            targets.add (new MSVCTargetBase (targetType, *this));
+                                            targets.add (new MSVCTarget (targetType, *this));
                                     });
 
         // If you hit this assert, you tried to generate a project for an exporter
@@ -1647,7 +1656,7 @@ public:
         jassert (targets.size() > 0);
     }
 
-    const MSVCTargetBase* getSharedCodeTarget() const
+    const MSVCTarget* getSharedCodeTarget() const
     {
         for (auto target : targets)
             if (target->type == build_tools::ProjectType::Target::SharedCodeTarget)
@@ -1691,7 +1700,7 @@ private:
 protected:
     //==============================================================================
     mutable File rcFile, iconFile, packagesConfigFile;
-    OwnedArray<MSVCTargetBase> targets;
+    OwnedArray<MSVCTarget> targets;
 
     ValueTreePropertyWithDefault IPPLibraryValue,
                                  IPP1ALibraryValue,
@@ -1700,12 +1709,18 @@ protected:
                                  targetPlatformVersion,
                                  manifestFileValue;
 
+    String getProjectFileBaseName (const String& target) const
+    {
+        const auto filename = project.getProjectFilenameRootString();
+
+        return filename + (target.isNotEmpty()
+                           ? (String ("_") + target.removeCharacters (" "))
+                           : "");
+    }
+
     File getProjectFile (const String& extension, const String& target) const
     {
-        auto filename = project.getProjectFilenameRootString();
-
-        if (target.isNotEmpty())
-            filename += String ("_") + target.removeCharacters (" ");
+        const auto filename = getProjectFileBaseName (target);
 
         return getTargetFolder().getChildFile (filename).withFileExtension (extension);
     }
@@ -1735,7 +1750,7 @@ protected:
         return getCleanedStringArray (searchPaths);
     }
 
-    String getTargetGuid (MSVCTargetBase::Type type) const
+    String getTargetGuid (MSVCTarget::Type type) const
     {
         for (auto* target : targets)
             if (target != nullptr && target->type == type)
@@ -1747,9 +1762,9 @@ protected:
     //==============================================================================
     void writeProjectDependencies (OutputStream& out) const
     {
-        const auto sharedCodeGuid = getTargetGuid (MSVCTargetBase::SharedCodeTarget);
-        const auto lv2HelperGuid  = getTargetGuid (MSVCTargetBase::LV2Helper);
-        const auto vst3HelperGuid = getTargetGuid (MSVCTargetBase::VST3Helper);
+        const auto sharedCodeGuid = getTargetGuid (MSVCTarget::SharedCodeTarget);
+        const auto lv2HelperGuid  = getTargetGuid (MSVCTarget::LV2Helper);
+        const auto vst3HelperGuid = getTargetGuid (MSVCTarget::VST3Helper);
 
         for (int addingOtherTargets = 0; addingOtherTargets < (sharedCodeGuid.isNotEmpty() ? 2 : 1); ++addingOtherTargets)
         {
@@ -1757,24 +1772,24 @@ protected:
             {
                 if (auto* target = targets[i])
                 {
-                    if (sharedCodeGuid.isEmpty() || (addingOtherTargets != 0) == (target->type != MSVCTargetBase::StandalonePlugIn))
+                    if (sharedCodeGuid.isEmpty() || (addingOtherTargets != 0) == (target->type != MSVCTarget::StandalonePlugIn))
                     {
                         out << "Project(\"{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}\") = \"" << projectName << " - "
                             << target->getName() << "\", \""
                             << target->getVCProjFile().getFileName() << "\", \"" << target->getProjectGuid() << '"' << newLine;
 
                         if (sharedCodeGuid.isNotEmpty()
-                            && target->type != MSVCTargetBase::SharedCodeTarget
-                            && target->type != MSVCTargetBase::LV2Helper
-                            && target->type != MSVCTargetBase::VST3Helper)
+                            && target->type != MSVCTarget::SharedCodeTarget
+                            && target->type != MSVCTarget::LV2Helper
+                            && target->type != MSVCTarget::VST3Helper)
                         {
                             out << "\tProjectSection(ProjectDependencies) = postProject" << newLine
                                 << "\t\t" << sharedCodeGuid << " = " << sharedCodeGuid << newLine;
 
-                            if (target->type == MSVCTargetBase::LV2PlugIn && lv2HelperGuid.isNotEmpty())
+                            if (target->type == MSVCTarget::LV2PlugIn && lv2HelperGuid.isNotEmpty())
                                 out << "\t\t" << lv2HelperGuid << " = " << lv2HelperGuid << newLine;
 
-                            if (target->type == MSVCTargetBase::VST3PlugIn && vst3HelperGuid.isNotEmpty() && project.isVst3ManifestEnabled())
+                            if (target->type == MSVCTarget::VST3PlugIn && vst3HelperGuid.isNotEmpty())
                                 out << "\t\t" << vst3HelperGuid << " = " << vst3HelperGuid << newLine;
 
                             out << "\tEndProjectSection" << newLine;
@@ -1893,7 +1908,8 @@ protected:
         const auto name = path.getFileNameWithoutExtension();
 
         return name.equalsIgnoreCase ("include_juce_gui_basics")
-            || name.equalsIgnoreCase ("include_juce_audio_processors");
+            || name.equalsIgnoreCase ("include_juce_audio_processors")
+            || name.equalsIgnoreCase ("include_juce_core");
     }
 
     StringArray getModuleLibs() const
@@ -1910,7 +1926,7 @@ protected:
 };
 
 //==============================================================================
-class MSVCProjectExporterVC2017  : public MSVCProjectExporterBase
+class MSVCProjectExporterVC2017 final : public MSVCProjectExporterBase
 {
 public:
     MSVCProjectExporterVC2017 (Project& p, const ValueTree& t)
@@ -1918,8 +1934,8 @@ public:
     {
         name = getDisplayName();
 
-        targetPlatformVersion.setDefault (getDefaultWindowsTargetPlatformVersion());
-        platformToolsetValue.setDefault (getDefaultToolset());
+        targetPlatformVersion.setDefault (defaultTargetPlatform);
+        platformToolsetValue.setDefault (defaultToolset);
     }
 
     static String getDisplayName()        { return "Visual Studio 2017"; }
@@ -1931,8 +1947,8 @@ public:
     int getVisualStudioVersion() const override                      { return 15; }
     String getSolutionComment() const override                       { return "# Visual Studio 15"; }
     String getToolsVersion() const override                          { return "15.0"; }
-    String getDefaultToolset() const override                        { return "v141"; }
-    String getDefaultWindowsTargetPlatformVersion() const override   { return "Latest"; }
+    String getDefaultToolset() const override                        { return defaultToolset; }
+    String getDefaultWindowsTargetPlatformVersion() const override   { return defaultTargetPlatform; }
 
     static MSVCProjectExporterVC2017* createForSettings (Project& projectToUse, const ValueTree& settingsToUse)
     {
@@ -1948,11 +1964,14 @@ public:
         MSVCProjectExporterBase::createExporterProperties (props);
     }
 
+private:
+    const String defaultToolset { "v141" }, defaultTargetPlatform { "Latest" };
+
     JUCE_DECLARE_NON_COPYABLE (MSVCProjectExporterVC2017)
 };
 
 //==============================================================================
-class MSVCProjectExporterVC2019  : public MSVCProjectExporterBase
+class MSVCProjectExporterVC2019 final : public MSVCProjectExporterBase
 {
 public:
     MSVCProjectExporterVC2019 (Project& p, const ValueTree& t)
@@ -1960,8 +1979,8 @@ public:
     {
         name = getDisplayName();
 
-        targetPlatformVersion.setDefault (getDefaultWindowsTargetPlatformVersion());
-        platformToolsetValue.setDefault (getDefaultToolset());
+        targetPlatformVersion.setDefault (defaultTargetPlatform);
+        platformToolsetValue.setDefault (defaultToolset);
     }
 
     static String getDisplayName()        { return "Visual Studio 2019"; }
@@ -1973,8 +1992,8 @@ public:
     int getVisualStudioVersion() const override                      { return 16; }
     String getSolutionComment() const override                       { return "# Visual Studio Version 16"; }
     String getToolsVersion() const override                          { return "16.0"; }
-    String getDefaultToolset() const override                        { return "v142"; }
-    String getDefaultWindowsTargetPlatformVersion() const override   { return "10.0"; }
+    String getDefaultToolset() const override                        { return defaultToolset; }
+    String getDefaultWindowsTargetPlatformVersion() const override   { return defaultTargetPlatform; }
 
     static MSVCProjectExporterVC2019* createForSettings (Project& projectToUse, const ValueTree& settingsToUse)
     {
@@ -1990,11 +2009,14 @@ public:
         MSVCProjectExporterBase::createExporterProperties (props);
     }
 
+private:
+    const String defaultToolset { "v142" }, defaultTargetPlatform { "10.0" };
+
     JUCE_DECLARE_NON_COPYABLE (MSVCProjectExporterVC2019)
 };
 
 //==============================================================================
-class MSVCProjectExporterVC2022  : public MSVCProjectExporterBase
+class MSVCProjectExporterVC2022 final : public MSVCProjectExporterBase
 {
 public:
     MSVCProjectExporterVC2022 (Project& p, const ValueTree& t)
@@ -2002,8 +2024,8 @@ public:
     {
         name = getDisplayName();
 
-        targetPlatformVersion.setDefault (getDefaultWindowsTargetPlatformVersion());
-        platformToolsetValue.setDefault (getDefaultToolset());
+        targetPlatformVersion.setDefault (defaultTargetPlatform);
+        platformToolsetValue.setDefault (defaultToolset);
     }
 
     static String getDisplayName()        { return "Visual Studio 2022"; }
@@ -2015,8 +2037,8 @@ public:
     int getVisualStudioVersion() const override                      { return 17; }
     String getSolutionComment() const override                       { return "# Visual Studio Version 17"; }
     String getToolsVersion() const override                          { return "17.0"; }
-    String getDefaultToolset() const override                        { return "v143"; }
-    String getDefaultWindowsTargetPlatformVersion() const override   { return "10.0"; }
+    String getDefaultToolset() const override                        { return defaultToolset; }
+    String getDefaultWindowsTargetPlatformVersion() const override   { return defaultTargetPlatform; }
 
     static MSVCProjectExporterVC2022* createForSettings (Project& projectToUse, const ValueTree& settingsToUse)
     {
@@ -2031,6 +2053,9 @@ public:
         addToolsetProperty (props, { "v140", "v140_xp", "v141", "v141_xp", "v142", "v143", "ClangCL" });
         MSVCProjectExporterBase::createExporterProperties (props);
     }
+
+private:
+    const String defaultToolset { "v143" }, defaultTargetPlatform { "10.0" };
 
     JUCE_DECLARE_NON_COPYABLE (MSVCProjectExporterVC2022)
 };

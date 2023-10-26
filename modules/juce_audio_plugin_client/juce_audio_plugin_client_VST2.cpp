@@ -104,7 +104,7 @@ JUCE_END_IGNORE_WARNINGS_GCC_LIKE
 
 using namespace juce;
 
-#include <juce_audio_plugin_client/detail/juce_WindowsHooks.h>
+#include <juce_gui_basics/native/juce_WindowsHooks_windows.h>
 #include <juce_audio_plugin_client/detail/juce_LinuxMessageThread.h>
 #include <juce_audio_plugin_client/detail/juce_VSTWindowUtilities.h>
 
@@ -196,10 +196,10 @@ struct AbletonLiveHostSpecific
 /**
     This is an AudioEffectX object that holds and wraps our AudioProcessor...
 */
-class JuceVSTWrapper  : public AudioProcessorListener,
-                        public AudioPlayHead,
-                        private Timer,
-                        private AudioProcessorParameter::Listener
+class JuceVSTWrapper final : public AudioProcessorListener,
+                             public AudioPlayHead,
+                             private Timer,
+                             private AudioProcessorParameter::Listener
 {
 private:
     //==============================================================================
@@ -388,7 +388,7 @@ public:
                 int i;
                 for (i = 0; i < numOut; ++i)
                 {
-                    auto* chan = tmpBuffers.tempChannels.getUnchecked(i);
+                    auto* chan = tmpBuffers.tempChannels.getUnchecked (i);
 
                     if (chan == nullptr)
                     {
@@ -444,7 +444,7 @@ public:
 
                 // copy back any temp channels that may have been used..
                 for (i = 0; i < numOut; ++i)
-                    if (auto* chan = tmpBuffers.tempChannels.getUnchecked(i))
+                    if (auto* chan = tmpBuffers.tempChannels.getUnchecked (i))
                         if (auto* dest = outputs[i])
                             memcpy (dest, chan, (size_t) numSamples * sizeof (FloatType));
             }
@@ -466,8 +466,7 @@ public:
             }
 
             // Send VST events to the host.
-            if (hostCallback != nullptr)
-                hostCallback (&vstEffect, Vst2::audioMasterProcessEvents, 0, 0, outgoingEvents.events, 0);
+            NullCheckedInvocation::invoke (hostCallback, &vstEffect, Vst2::audioMasterProcessEvents, 0, 0, outgoingEvents.events, 0.0f);
            #elif JUCE_DEBUG
             /*  This assertion is caused when you've added some events to the
                 midiMessages array in your processBlock() method, which usually means
@@ -545,10 +544,7 @@ public:
                 some hosts rely on this behaviour.
             */
             if (vstEffect.flags & Vst2::effFlagsIsSynth || JucePlugin_WantsMidiInput || JucePlugin_IsMidiEffect)
-            {
-                if (hostCallback != nullptr)
-                    hostCallback (&vstEffect, Vst2::audioMasterWantMidi, 0, 1, nullptr, 0);
-            }
+                NullCheckedInvocation::invoke (hostCallback, &vstEffect, Vst2::audioMasterWantMidi, 0, 1, nullptr, 0.0f);
 
             if (detail::PluginUtilities::getHostType().isAbletonLive()
                  && hostCallback != nullptr
@@ -697,20 +693,17 @@ public:
             return;
         }
 
-        if (hostCallback != nullptr)
-            hostCallback (&vstEffect, Vst2::audioMasterAutomate, index, 0, nullptr, newValue);
+        NullCheckedInvocation::invoke (hostCallback, &vstEffect, Vst2::audioMasterAutomate, index, 0, nullptr, newValue);
     }
 
     void audioProcessorParameterChangeGestureBegin (AudioProcessor*, int index) override
     {
-        if (hostCallback != nullptr)
-            hostCallback (&vstEffect, Vst2::audioMasterBeginEdit, index, 0, nullptr, 0);
+        NullCheckedInvocation::invoke (hostCallback, &vstEffect, Vst2::audioMasterBeginEdit, index, 0, nullptr, 0.0f);
     }
 
     void audioProcessorParameterChangeGestureEnd (AudioProcessor*, int index) override
     {
-        if (hostCallback != nullptr)
-            hostCallback (&vstEffect, Vst2::audioMasterEndEdit, index, 0, nullptr, 0);
+        NullCheckedInvocation::invoke (hostCallback, &vstEffect, Vst2::audioMasterEndEdit, index, 0, nullptr, 0.0f);
     }
 
     void parameterValueChanged (int, float newValue) override
@@ -940,7 +933,7 @@ public:
     //==============================================================================
     // A component to hold the AudioProcessorEditor, and cope with some housekeeping
     // chores when it changes or repaints.
-    struct EditorCompWrapper  : public Component
+    struct EditorCompWrapper final : public Component
                              #if JUCE_WINDOWS && JUCE_WIN_PER_MONITOR_DPI_AWARE
                               , public Timer
                              #endif
@@ -1279,7 +1272,7 @@ public:
 
     //==============================================================================
 private:
-    struct HostChangeUpdater  : private AsyncUpdater
+    struct HostChangeUpdater final : private AsyncUpdater
     {
         explicit HostChangeUpdater (JuceVSTWrapper& o)  : owner (o) {}
         ~HostChangeUpdater() override  { cancelPendingUpdate(); }
@@ -1377,7 +1370,7 @@ private:
             {
                 MessageManager::getInstance()->setCurrentThreadAsMessageThread();
 
-                struct MessageThreadCallback  : public CallbackMessage
+                struct MessageThreadCallback final : public CallbackMessage
                 {
                     MessageThreadCallback (bool& tr) : triggered (tr) {}
                     void messageCallback() override     { triggered = true; }
@@ -1823,7 +1816,7 @@ private:
         if (args.index == Vst2::effGetParamDisplay)
             return handleCockosGetParameterText (args.value, args.ptr, args.opt);
 
-        if (auto callbackHandler = dynamic_cast<VSTCallbackHandler*> (processor.get()))
+        if (auto callbackHandler = processor->getVST2ClientExtensions())
             return callbackHandler->handleVstManufacturerSpecific (args.index, args.value, args.ptr, args.opt);
 
         return 0;
@@ -1882,7 +1875,7 @@ private:
         if (matches ("hasCockosExtensions"))
             return (int32) 0xbeef0000;
 
-        if (auto callbackHandler = dynamic_cast<VSTCallbackHandler*> (processor.get()))
+        if (auto callbackHandler = processor->getVST2ClientExtensions())
             return callbackHandler->handleVstPluginCanDo (args.index, args.value, args.ptr, args.opt);
 
         return 0;
@@ -1943,8 +1936,11 @@ private:
         *pluginInput  = cachedInArrangement. getData();
         *pluginOutput = cachedOutArrangement.getData();
 
-        SpeakerMappings::channelSetToVstArrangement (processor->getChannelLayoutOfBus (true,  0), **pluginInput);
-        SpeakerMappings::channelSetToVstArrangement (processor->getChannelLayoutOfBus (false, 0), **pluginOutput);
+        if (*pluginInput != nullptr)
+            SpeakerMappings::channelSetToVstArrangement (processor->getChannelLayoutOfBus (true,  0), **pluginInput);
+
+        if (*pluginOutput != nullptr)
+            SpeakerMappings::channelSetToVstArrangement (processor->getChannelLayoutOfBus (false, 0), **pluginOutput);
 
         return 1;
     }
@@ -2115,7 +2111,7 @@ namespace
                     auto* wrapper = new JuceVSTWrapper (audioMaster, std::move (processor));
                     auto* aEffect = wrapper->getAEffect();
 
-                    if (auto* callbackHandler = dynamic_cast<VSTCallbackHandler*> (processorPtr))
+                    if (auto* callbackHandler = processorPtr->getVST2ClientExtensions())
                     {
                         callbackHandler->handleVstHostCallbackAvailable ([audioMaster, aEffect] (int32 opcode, int32 index, pointer_sized_int value, void* ptr, float opt)
                         {
@@ -2135,7 +2131,7 @@ namespace
 }
 
 #if ! JUCE_WINDOWS
- #define JUCE_EXPORTED_FUNCTION extern "C" __attribute__ ((visibility("default")))
+ #define JUCE_EXPORTED_FUNCTION extern "C" __attribute__ ((visibility ("default")))
 #endif
 
 JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wmissing-prototypes")
@@ -2173,8 +2169,8 @@ JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wmissing-prototypes")
     }
 
     // don't put initialiseJuce_GUI or shutdownJuce_GUI in these... it will crash!
-    __attribute__((constructor)) void myPluginInit() {}
-    __attribute__((destructor))  void myPluginFini() {}
+    __attribute__ ((constructor)) void myPluginInit() {}
+    __attribute__ ((destructor))  void myPluginFini() {}
 
 //==============================================================================
 // Win32 startup code..

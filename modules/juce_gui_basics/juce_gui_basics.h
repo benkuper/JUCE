@@ -35,7 +35,7 @@
 
   ID:                 juce_gui_basics
   vendor:             juce
-  version:            7.0.5
+  version:            7.0.8
   name:               JUCE GUI core classes
   description:        Basic user-interface components and related classes.
   website:            http://www.juce.com/juce
@@ -199,6 +199,7 @@ namespace juce
 #include "desktop/juce_Desktop.h"
 #include "desktop/juce_Displays.h"
 #include "layout/juce_ComponentBoundsConstrainer.h"
+#include "layout/juce_BorderedComponentBoundsConstrainer.h"
 #include "mouse/juce_ComponentDragger.h"
 #include "mouse/juce_DragAndDropTarget.h"
 #include "mouse/juce_DragAndDropContainer.h"
@@ -289,7 +290,8 @@ namespace juce
 #include "windows/juce_NativeMessageBox.h"
 #include "windows/juce_ThreadWithProgressWindow.h"
 #include "windows/juce_TooltipWindow.h"
-#include "windows/juce_VBlankAttachement.h"
+#include "windows/juce_VBlankAttachment.h"
+#include "windows/juce_WindowUtils.h"
 #include "layout/juce_MultiDocumentPanel.h"
 #include "layout/juce_SidePanel.h"
 #include "filebrowser/juce_FileBrowserListener.h"

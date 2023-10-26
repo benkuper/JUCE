@@ -32,8 +32,6 @@ struct WindowingHelpers
 
     static Image createIconForFile (const File& file);
 
-    static bool areThereAnyAlwaysOnTopWindows();
-
     #if JUCE_WINDOWS
      static bool isEmbeddedInForegroundProcess (Component* c);
      static bool isWindowOnCurrentVirtualDesktop (void*);
@@ -48,6 +46,15 @@ struct WindowingHelpers
     static bool isForegroundOrEmbeddedProcess (Component* viewComponent)
     {
         return Process::isForegroundProcess() || isEmbeddedInForegroundProcess (viewComponent);
+    }
+
+    template <typename Value>
+    static BorderSize<int> roundToInt (BorderSize<Value> border)
+    {
+        return { ::juce::roundToInt (border.getTop()),
+                 ::juce::roundToInt (border.getLeft()),
+                 ::juce::roundToInt (border.getBottom()),
+                 ::juce::roundToInt (border.getRight()) };
     }
 };
 

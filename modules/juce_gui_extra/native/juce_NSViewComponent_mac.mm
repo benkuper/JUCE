@@ -26,14 +26,13 @@
 namespace juce
 {
 
-class NSViewAttachment  : public ReferenceCountedObject,
-                          public ComponentMovementWatcher
+class NSViewAttachment final : public ReferenceCountedObject,
+                               public ComponentMovementWatcher
 {
 public:
     NSViewAttachment (NSView* v, Component& comp)
         : ComponentMovementWatcher (&comp),
-          view (v), owner (comp),
-          currentPeer (nullptr)
+          view (v), owner (comp)
     {
         [view retain];
         [view setPostsFrameChangedNotifications: YES];
@@ -75,14 +74,16 @@ public:
     {
         auto* peer = owner.getPeer();
 
-        if (currentPeer != peer)
+        if (std::exchange (currentPeer, peer) != peer)
         {
-            currentPeer = peer;
-
             if (peer != nullptr)
             {
                 auto peerView = (NSView*) peer->getNativeHandle();
                 [peerView addSubview: view];
+
+                if (@available (macOS 10.10, *))
+                    [view setAccessibilityParent:static_cast<id> (owner.getAccessibilityHandler()->getNativeImplementation())];
+
                 componentMovedOrResized (false, false);
             }
             else
@@ -110,7 +111,7 @@ public:
 
 private:
     Component& owner;
-    ComponentPeer* currentPeer;
+    ComponentPeer* currentPeer = nullptr;
     NSViewFrameWatcher frameWatcher { view, [this] { owner.childBoundsChanged (nullptr); } };
 
     void removeFromParent()
@@ -125,7 +126,10 @@ private:
 
 //==============================================================================
 NSViewComponent::NSViewComponent() = default;
-NSViewComponent::~NSViewComponent() = default;
+NSViewComponent::~NSViewComponent()
+{
+    AccessibilityHandler::setNativeChildForComponent (*this, nullptr);
+}
 
 void NSViewComponent::setView (void* view)
 {
@@ -139,6 +143,8 @@ void NSViewComponent::setView (void* view)
             attachment = attachViewToComponent (*this, view);
 
         old = nullptr;
+
+        AccessibilityHandler::setNativeChildForComponent (*this, getView());
     }
 }
 
@@ -181,6 +187,11 @@ void NSViewComponent::alphaChanged()
 ReferenceCountedObject* NSViewComponent::attachViewToComponent (Component& comp, void* view)
 {
     return new NSViewAttachment ((NSView*) view, comp);
+}
+
+std::unique_ptr<AccessibilityHandler> NSViewComponent::createAccessibilityHandler()
+{
+    return std::make_unique<AccessibilityHandler> (*this, AccessibilityRole::group);
 }
 
 } // namespace juce

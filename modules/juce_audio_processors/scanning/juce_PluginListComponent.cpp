@@ -381,7 +381,7 @@ void PluginListComponent::setLastSearchPath (PropertiesFile& properties, AudioPl
 }
 
 //==============================================================================
-class PluginListComponent::Scanner    : private Timer
+class PluginListComponent::Scanner final : private Timer
 {
 public:
     Scanner (PluginListComponent& plc, AudioPluginFormat& format, const StringArray& filesOrIdentifiers,
@@ -553,7 +553,7 @@ private:
 
         if (numThreads > 0)
         {
-            pool.reset (new ThreadPool (numThreads));
+            pool.reset (new ThreadPool (ThreadPoolOptions{}.withNumberOfThreads (numThreads)));
 
             for (int i = numThreads; --i >= 0;)
                 pool->addJob (new ScanJob (*this), true);
@@ -609,7 +609,7 @@ private:
         return false;
     }
 
-    struct ScanJob  : public ThreadPoolJob
+    struct ScanJob final : public ThreadPoolJob
     {
         ScanJob (Scanner& s)  : ThreadPoolJob ("pluginscan"), scanner (s) {}
 

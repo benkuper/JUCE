@@ -33,11 +33,11 @@ namespace juce
     some static methods for running these.
 
     For more complex dialogs, an AlertWindow can be created, then it can have some
-    buttons and components added to it, and its runModalLoop() method is then used to
-    show it. The value returned by runModalLoop() shows which button the
-    user pressed to dismiss the box.
+    buttons and components added to it, and its enterModalState() method is used to
+    show it. The value returned to the ModalComponentManager::Callback shows
+    which button the user pressed to dismiss the box.
 
-    @see ThreadWithProgressWindow
+    @see ThreadWithProgressWindow, Component::enterModalState
 
     @tags{GUI}
 */
@@ -188,8 +188,13 @@ public:
         @param progressValue    a variable that will be repeatedly checked while the
                                 dialog box is visible, to see how far the process has
                                 got. The value should be in the range 0 to 1.0
+        @param style            determines the style the ProgressBar should adopt.
+                                By default this use a style automatically chosen by
+                                the LookAndFeel, but you can force a particular style
+                                by passing a non-optional value.
+        @see ProgressBar::setStyle
     */
-    void addProgressBarComponent (double& progressValue);
+    void addProgressBarComponent (double& progressValue, std::optional<ProgressBar::Style> style = std::nullopt);
 
     //==============================================================================
     /** Adds a user-defined component to the dialog box.
@@ -328,11 +333,13 @@ public:
         Ideal for ok/cancel or yes/no choices. The return key can also be used
         to trigger the first button, and the escape key for the second button.
 
-        If the callback parameter is null, the box is shown modally, and the method will
-        block until the user has clicked the button (or pressed the escape or return keys).
-        If the callback parameter is non-null, the box will be displayed and placed into a
-        modal state, but this method will return immediately, and the callback will be invoked
-        later when the user dismisses the box.
+        If JUCE_MODAL_LOOPS_PERMITTED is not defined or the callback parameter is non-null,
+        this function will return immediately. The object passed as the callback argument will
+        receive the result of the alert window asynchronously.
+        Otherwise, if JUCE_MODAL_LOOPS_PERMITTED is defined and the callback parameter is null,
+        the box is shown modally, and the method will block until the user has clicked the button
+        (or pressed the escape or return keys). This mode of operation can cause problems,
+        especially in plugins, so it is not recommended.
 
         @param iconType     the type of icon to show
         @param title        the headline to show at the top of the box
@@ -379,11 +386,13 @@ public:
 
         The escape key can be used to trigger the third button.
 
-        If the callback parameter is null, the box is shown modally, and the method will
-        block until the user has clicked the button (or pressed the escape or return keys).
-        If the callback parameter is non-null, the box will be displayed and placed into a
-        modal state, but this method will return immediately, and the callback will be invoked
-        later when the user dismisses the box.
+        If JUCE_MODAL_LOOPS_PERMITTED is not defined or the callback parameter is non-null,
+        this function will return immediately. The object passed as the callback argument will
+        receive the result of the alert window asynchronously.
+        Otherwise, if JUCE_MODAL_LOOPS_PERMITTED is defined and the callback parameter is null,
+        the box is shown modally, and the method will block until the user has clicked the button
+        (or pressed the escape or return keys). This mode of operation can cause problems,
+        especially in plugins, so it is not recommended.
 
         @param iconType     the type of icon to show
         @param title        the headline to show at the top of the box

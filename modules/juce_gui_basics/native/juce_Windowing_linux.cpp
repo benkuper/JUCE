@@ -27,12 +27,8 @@ namespace juce
 {
 
 //==============================================================================
-static int numAlwaysOnTopPeers = 0;
-bool detail::WindowingHelpers::areThereAnyAlwaysOnTopWindows()  { return numAlwaysOnTopPeers > 0; }
-
-//==============================================================================
-class LinuxComponentPeer  : public ComponentPeer,
-                            private XWindowSystemUtilities::XSettings::Listener
+class LinuxComponentPeer final : public ComponentPeer,
+                                 private XWindowSystemUtilities::XSettings::Listener
 {
 public:
     LinuxComponentPeer (Component& comp, int windowStyleFlags, ::Window parentToAddTo)
@@ -48,7 +44,7 @@ public:
             return;
 
         if (isAlwaysOnTop)
-            ++numAlwaysOnTopPeers;
+            ++WindowUtilsInternal::numAlwaysOnTopPeers;
 
         repainter = std::make_unique<LinuxRepaintManager> (*this);
 
@@ -79,7 +75,7 @@ public:
             xSettings->removeListener (this);
 
         if (isAlwaysOnTop)
-            --numAlwaysOnTopPeers;
+            --WindowUtilsInternal::numAlwaysOnTopPeers;
     }
 
     ::Window getWindowHandle() const noexcept
@@ -403,6 +399,12 @@ public:
 
     void clearWindowAssociation() { association = {}; }
 
+    void startHostManagedResize (Point<int> mouseDownPosition,
+                                 ResizableBorderComponent::Zone zone) override
+    {
+        XWindowSystem::getInstance()->startHostManagedResize (windowH, mouseDownPosition, zone);
+    }
+
     //==============================================================================
     static bool isActiveApplication;
     bool focused = false;
@@ -468,8 +470,7 @@ private:
                         // This issue only occurs right after peer creation, when the image is
                         // null. Updating when only the width or height is changed would lead to
                         // incorrect behaviour.
-                        peer.forceSetBounds (detail::ScalingHelpers::scaledScreenPosToUnscaled (peer.component,
-                                                                                        peer.component.getBoundsInParent()),
+                        peer.forceSetBounds (detail::ScalingHelpers::scaledScreenPosToUnscaled (peer.component, peer.component.getBoundsInParent()),
                                              peer.isFullScreen());
                     }
                 }
@@ -508,7 +509,7 @@ private:
         JUCE_DECLARE_NON_COPYABLE (LinuxRepaintManager)
     };
 
-    class LinuxVBlankManager  : public Timer
+    class LinuxVBlankManager final : public Timer
     {
     public:
         explicit LinuxVBlankManager (std::function<void()> cb)  : callback (std::move (cb))

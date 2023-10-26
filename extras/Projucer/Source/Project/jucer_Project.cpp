@@ -261,14 +261,6 @@ void Project::updateDeprecatedProjectSettings()
         exporter->updateDeprecatedSettings();
 }
 
-void Project::updateDeprecatedProjectSettingsInteractively()
-{
-    jassert (! ProjucerApplication::getApp().isRunningCommandLine);
-
-    for (ExporterIterator exporter (*this); exporter.next();)
-        exporter->updateDeprecatedSettingsInteractively();
-}
-
 void Project::initialiseMainGroup()
 {
     // Create main file group if missing
@@ -340,7 +332,7 @@ void Project::initialiseAudioPluginValues()
 
     pluginFormatsValue.referTo               (projectRoot, Ids::pluginFormats,              getUndoManager(),
                                               Array<var> (Ids::buildVST3.toString(), Ids::buildAU.toString(), Ids::buildStandalone.toString()), ",");
-    pluginCharacteristicsValue.referTo       (projectRoot, Ids::pluginCharacteristicsValue, getUndoManager(), Array<var> (), ",");
+    pluginCharacteristicsValue.referTo       (projectRoot, Ids::pluginCharacteristicsValue, getUndoManager(), Array<var>(), ",");
 
     pluginNameValue.referTo                  (projectRoot, Ids::pluginName,                 getUndoManager(), getProjectNameString());
     pluginDescriptionValue.referTo           (projectRoot, Ids::pluginDesc,                 getUndoManager(), getProjectNameString());
@@ -369,8 +361,6 @@ void Project::initialiseAudioPluginValues()
     pluginVSTNumMidiOutputsValue.referTo     (projectRoot, Ids::pluginVSTNumMidiOutputs,    getUndoManager(), 16);
 
     pluginLV2URIValue.referTo                (projectRoot, Ids::lv2Uri,                     getUndoManager(), getDefaultLV2URI());
-
-    vst3ManifestEnabledValue.referTo         (projectRoot, Ids::vst3ManifestEnabled,        getUndoManager(), false);
 }
 
 void Project::updateOldStyleConfigList()
@@ -464,8 +454,8 @@ void Project::removeDefunctExporters()
             warningMessage << "\n"
                            << TRANS ("These exporters have been removed from the project. If you save the project they will be also erased from the .jucer file.");
 
-            auto options = MessageBoxOptions::makeOptionsOk (MessageBoxIconType::WarningIcon, warningTitle, warningMessage);
-            messageBox = AlertWindow::showScopedAsync (options, nullptr);
+            exporterRemovalMessageBoxOptions = MessageBoxOptions::makeOptionsOk (MessageBoxIconType::WarningIcon, warningTitle, warningMessage);
+            messageBoxQueueListenerScope = messageBoxQueue.addListener (*this);
         }
     }
 }
@@ -714,9 +704,9 @@ Result Project::loadDocument (const File& file)
     return Result::ok();
 }
 
-Result Project::saveDocument (const File& file)
+Result Project::saveDocument ([[maybe_unused]] const File& file)
 {
-    jassertquiet (file == getFile());
+    jassert (file == getFile());
 
     auto sharedResult = Result::ok();
 
@@ -728,9 +718,10 @@ Result Project::saveDocument (const File& file)
     return sharedResult;
 }
 
-void Project::saveDocumentAsync (const File& file, std::function<void (Result)> afterSave)
+void Project::saveDocumentAsync ([[maybe_unused]] const File& file,
+                                 std::function<void (Result)> afterSave)
 {
-    jassertquiet (file == getFile());
+    jassert (file == getFile());
 
     saveProject (Async::yes, nullptr, std::move (afterSave));
 }
@@ -906,6 +897,25 @@ void Project::updateModuleWarnings()
     updateMissingModuleDependenciesWarning (missingDependencies);
     updateOldProjucerWarning (oldProjucer);
     updateModuleNotFoundWarning (moduleNotFound);
+}
+
+void Project::updateExporterWarnings()
+{
+    const Identifier deprecatedExporters[] = { "CODEBLOCKS_WINDOWS", "CODEBLOCKS_LINUX" };
+
+    for (const auto exporter : getExporters())
+    {
+        for (const auto& name : deprecatedExporters)
+        {
+            if (exporter.getType() == name)
+            {
+                addProjectMessage (ProjectMessages::Ids::deprecatedExporter, {});
+                return;
+            }
+        }
+    }
+
+    removeProjectMessage (ProjectMessages::Ids::deprecatedExporter);
 }
 
 void Project::updateCppStandardWarning (bool showWarning)
@@ -1141,24 +1151,32 @@ void Project::valueTreePropertyChanged (ValueTree& tree, const Identifier& prope
     changed();
 }
 
-void Project::valueTreeChildAdded (ValueTree& parent, ValueTree& child)
+void Project::valueTreeChildAddedOrRemoved (ValueTree& parent, ValueTree& child)
 {
-    ignoreUnused (parent);
-
     if (child.getType() == Ids::MODULE)
         updateModuleWarnings();
+    else if (parent.getType() == Ids::EXPORTFORMATS)
+        updateExporterWarnings();
 
     changed();
 }
 
-void Project::valueTreeChildRemoved (ValueTree& parent, ValueTree& child, int index)
+void Project::canCreateMessageBox (CreatorFunction f)
 {
-    ignoreUnused (parent, index);
+    messageBox = f (*exporterRemovalMessageBoxOptions, [this] (auto)
+                                                       {
+                                                           messageBoxQueueListenerScope.reset();
+                                                       });
+}
 
-    if (child.getType() == Ids::MODULE)
-        updateModuleWarnings();
+void Project::valueTreeChildAdded (ValueTree& parent, ValueTree& child)
+{
+    valueTreeChildAddedOrRemoved (parent, child);
+}
 
-    changed();
+void Project::valueTreeChildRemoved (ValueTree& parent, ValueTree& child, int)
+{
+    valueTreeChildAddedOrRemoved (parent, child);
 }
 
 void Project::valueTreeChildOrderChanged (ValueTree&, int, int)
@@ -1246,6 +1264,7 @@ const build_tools::ProjectType& Project::getProjectType() const
 
     auto* guiType = build_tools::ProjectType::findType (build_tools::ProjectType_GUIApp::getTypeName());
     jassert (guiType != nullptr);
+    // NOLINTNEXTLINE(clang-analyzer-core.uninitialized.UndefReturn)
     return *guiType;
 }
 
@@ -1265,7 +1284,7 @@ bool Project::shouldBuildTargetType (build_tools::ProjectType::Target::Type targ
         case Target::VST3PlugIn:
             return shouldBuildVST3();
         case Target::VST3Helper:
-            return shouldBuildVST3() && isVst3ManifestEnabled();
+            return shouldBuildVST3();
         case Target::AAXPlugIn:
             return shouldBuildAAX();
         case Target::AudioUnitPlugIn:
@@ -1396,8 +1415,8 @@ void Project::createPropertyEditors (PropertyListBuilder& props)
 
         for (int i = 0; i < types.size(); ++i)
         {
-            projectTypeNames.add (types.getUnchecked(i)->getDescription());
-            projectTypeCodes.add (types.getUnchecked(i)->getType());
+            projectTypeNames.add (types.getUnchecked (i)->getDescription());
+            projectTypeCodes.add (types.getUnchecked (i)->getType());
         }
 
         props.add (new ChoicePropertyComponent (projectTypeValue, "Project Type", projectTypeNames, projectTypeCodes),
@@ -1541,14 +1560,6 @@ void Project::createAudioPluginPropertyEditors (PropertyListBuilder& props)
                    "If neither of these are selected, the appropriate one will be automatically added based on the \"Plugin is a synth\" option.");
     }
 
-    props.add (new ChoicePropertyComponent (vst3ManifestEnabledValue, "Plugin VST3 moduleinfo.json Enabled"),
-               "Check this box if you want a moduleinfo.json file to be generated as part of the VST3 build. "
-               "This may improve startup/scanning time for hosts that understand the contents of this file. "
-               "This setting is disabled by default because the moduleinfo.json path can cause problems during code signing on macOS. "
-               "Bundles containing a moduleinfo.json may be rejected by code signing verification at any point in the future without notice per https://developer.apple.com/library/archive/technotes/tn2206."
-               "If you enable this setting, be aware that the code signature for the moduleinfo.json will be stored in its extended file attributes. "
-               "Therefore, you will need to ensure that these attributes are not changed or removed when distributing the VST3.");
-
     props.add (new MultiChoicePropertyComponent (pluginAAXCategoryValue, "Plugin AAX Category", getAllAAXCategoryStrings(), getAllAAXCategoryVars()),
                "AAX category.");
 
@@ -1687,7 +1698,7 @@ Project::Item Project::Item::findItemWithID (const String& targetId) const
     {
         for (auto i = getNumChildren(); --i >= 0;)
         {
-            auto found = getChild(i).findItemWithID (targetId);
+            auto found = getChild (i).findItemWithID (targetId);
 
             if (found.isValid())
                 return found;
@@ -1808,7 +1819,7 @@ Project::Item Project::Item::findItemForFile (const File& file) const
     {
         for (auto i = getNumChildren(); --i >= 0;)
         {
-            auto found = getChild(i).findItemForFile (file);
+            auto found = getChild (i).findItemForFile (file);
 
             if (found.isValid())
                 return found;
@@ -1825,7 +1836,7 @@ File Project::Item::determineGroupFolder() const
 
     for (int i = 0; i < getNumChildren(); ++i)
     {
-        f = getChild(i).getFile();
+        f = getChild (i).getFile();
 
         if (f.exists())
             return f.getParentDirectory();
@@ -1862,7 +1873,7 @@ void Project::Item::initialiseMissingProperties()
     else if (isGroup())
     {
         for (auto i = getNumChildren(); --i >= 0;)
-            getChild(i).initialiseMissingProperties();
+            getChild (i).initialiseMissingProperties();
     }
 }
 
@@ -1949,7 +1960,7 @@ void Project::Item::sortAlphabetically (bool keepGroupsAtStart, bool recursive)
 
     if (recursive)
         for (auto i = getNumChildren(); --i >= 0;)
-            getChild(i).sortAlphabetically (keepGroupsAtStart, true);
+            getChild (i).sortAlphabetically (keepGroupsAtStart, true);
 }
 
 Project::Item Project::Item::getOrCreateSubGroup (const String& name)
@@ -2820,9 +2831,9 @@ StringPairArray Project::getAudioPluginFlags() const
     flags.set ("JucePlugin_VSTNumMidiOutputs",           getVSTNumMIDIOutputsString());
     flags.set ("JucePlugin_ARAContentTypes",             String (getARAContentTypes()));
     flags.set ("JucePlugin_ARATransformationFlags",      String (getARATransformationFlags()));
-    flags.set ("JucePlugin_ARAFactoryID",                toStringLiteral(getARAFactoryIDString()));
-    flags.set ("JucePlugin_ARADocumentArchiveID",        toStringLiteral(getARADocumentArchiveIDString()));
-    flags.set ("JucePlugin_ARACompatibleArchiveIDs",     toStringLiteral(getARACompatibleArchiveIDStrings()));
+    flags.set ("JucePlugin_ARAFactoryID",                toStringLiteral (getARAFactoryIDString()));
+    flags.set ("JucePlugin_ARADocumentArchiveID",        toStringLiteral (getARADocumentArchiveIDString()));
+    flags.set ("JucePlugin_ARACompatibleArchiveIDs",     toStringLiteral (getARACompatibleArchiveIDStrings()));
 
     {
         String plugInChannelConfig = getPluginChannelConfigsString();

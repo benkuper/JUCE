@@ -64,7 +64,7 @@ private:
 };
 
 //==============================================================================
-class ProjectExporter  : private Value::Listener
+class ProjectExporter : private Value::Listener
 {
 public:
     ProjectExporter (Project&, const ValueTree& settings);
@@ -101,7 +101,6 @@ public:
     virtual bool canCopeWithDuplicateFiles() = 0;
     virtual bool supportsUserDefinedConfigurations() const = 0; // false if exporter only supports two configs Debug and Release
     virtual void updateDeprecatedSettings()               {}
-    virtual void updateDeprecatedSettingsInteractively()  {}
     virtual void initialiseDependencyPathValues()         {}
 
     // IDE targeted by exporter
@@ -220,50 +219,15 @@ public:
     {
         return getModuleFolderRelativeToProject ("juce_audio_plugin_client")
                .getChildFile ("LV2")
-               .getChildFile ("juce_LV2TurtleDumpProgram.cpp");
+               .getChildFile ("juce_LV2ManifestHelper.cpp");
     }
 
-    std::vector<build_tools::RelativePath> getVST3HelperProgramSources (const ProjectExporter& exporter) const
+    build_tools::RelativePath getVST3HelperProgramSource() const
     {
-        const auto base = getModuleFolderRelativeToProject ("juce_audio_processors").getChildFile ("format_types")
-                                                                                    .getChildFile ("VST3_SDK");
-        const auto publicSdk = base.getChildFile ("public.sdk");
-        const auto source = publicSdk.getChildFile ("source");
-        const auto vst = source.getChildFile ("vst");
-        const auto hosting = vst.getChildFile ("hosting");
-        const auto plugBase = base.getChildFile ("pluginterfaces")
-                                  .getChildFile ("base");
-
-        std::vector<build_tools::RelativePath> result
-        {
-            hosting.getChildFile ("module.cpp"),
-            base.getChildFile ("public.sdk")
-                .getChildFile ("samples")
-                .getChildFile ("vst-utilities")
-                .getChildFile ("moduleinfotool")
-                .getChildFile ("source")
-                .getChildFile ("main.cpp"),
-            source.getChildFile ("common")
-                  .getChildFile ("memorystream.cpp"),
-            vst.getChildFile ("moduleinfo")
-               .getChildFile ("moduleinfocreator.cpp"),
-            vst.getChildFile ("moduleinfo")
-               .getChildFile ("moduleinfoparser.cpp"),
-            vst.getChildFile ("utility")
-               .getChildFile ("stringconvert.cpp"),
-            vst.getChildFile ("vstinitiids.cpp"),
-            plugBase.getChildFile ("coreiids.cpp"),
-            plugBase.getChildFile ("funknown.cpp"),
-        };
-
-        if (exporter.isOSX())
-            result.push_back (hosting.getChildFile ("module_mac.mm"));
-        else if (exporter.isLinux())
-            result.push_back (hosting.getChildFile ("module_linux.cpp"));
-        else if (exporter.isWindows())
-            result.push_back (hosting.getChildFile ("module_win32.cpp"));
-
-        return result;
+        const auto suffix = isOSX() ? "mm" : "cpp";
+        return getModuleFolderRelativeToProject ("juce_audio_plugin_client")
+               .getChildFile ("VST3")
+               .getChildFile (String ("juce_VST3ManifestHelper.") + suffix);
     }
 
     //==============================================================================
@@ -299,7 +263,7 @@ public:
     const LinuxSubprocessHelperProperties linuxSubprocessHelperProperties { *this };
 
     //==============================================================================
-    class BuildConfiguration  : public ReferenceCountedObject
+    class BuildConfiguration : public ReferenceCountedObject
     {
     public:
         BuildConfiguration (Project& project, const ValueTree& configNode, const ProjectExporter&);
@@ -374,7 +338,8 @@ public:
                     "-Wswitch-enum",
                     "-Wuninitialized",
                     "-Wunreachable-code",
-                    "-Wunused-parameter"
+                    "-Wunused-parameter",
+                    "-Wmissing-field-initializers"
                 };
 
                 result.cpp = {

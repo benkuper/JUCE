@@ -359,8 +359,7 @@ public:
         if (checker.shouldBailOut())
             return;
 
-        if (owner.onValueChange != nullptr)
-            owner.onValueChange();
+        NullCheckedInvocation::invoke (owner.onValueChange);
 
         if (checker.shouldBailOut())
             return;
@@ -379,8 +378,7 @@ public:
         if (checker.shouldBailOut())
             return;
 
-        if (owner.onDragStart != nullptr)
-            owner.onDragStart();
+        NullCheckedInvocation::invoke (owner.onDragStart);
     }
 
     void sendDragEnd()
@@ -394,8 +392,7 @@ public:
         if (checker.shouldBailOut())
             return;
 
-        if (owner.onDragEnd != nullptr)
-            owner.onDragEnd();
+        NullCheckedInvocation::invoke (owner.onDragEnd);
     }
 
     void incrementOrDecrement (double delta)
@@ -1355,8 +1352,8 @@ public:
     std::unique_ptr<Button> incButton, decButton;
 
     //==============================================================================
-    struct PopupDisplayComponent  : public BubbleComponent,
-                                    public Timer
+    struct PopupDisplayComponent final : public BubbleComponent,
+                                         public Timer
     {
         PopupDisplayComponent (Slider& s, bool isOnDesktop)
             : owner (s),
@@ -1577,10 +1574,11 @@ void Slider::lookAndFeelChanged()   { pimpl->lookAndFeelChanged (getLookAndFeel(
 void Slider::enablementChanged()    { repaint(); pimpl->updateTextBoxEnablement(); }
 
 //==============================================================================
-Range<double> Slider::getRange() const noexcept  { return { pimpl->normRange.start, pimpl->normRange.end }; }
-double Slider::getMaximum() const noexcept       { return pimpl->normRange.end; }
-double Slider::getMinimum() const noexcept       { return pimpl->normRange.start; }
-double Slider::getInterval() const noexcept      { return pimpl->normRange.interval; }
+NormalisableRange<double> Slider::getNormalisableRange() const noexcept { return pimpl->normRange; }
+Range<double> Slider::getRange() const noexcept                         { return { pimpl->normRange.start, pimpl->normRange.end }; }
+double Slider::getMaximum() const noexcept                              { return pimpl->normRange.end; }
+double Slider::getMinimum() const noexcept                              { return pimpl->normRange.start; }
+double Slider::getInterval() const noexcept                             { return pimpl->normRange.interval; }
 
 void Slider::setRange (double newMin, double newMax, double newInt)      { pimpl->setRange (newMin, newMax, newInt); }
 void Slider::setRange (Range<double> newRange, double newInt)            { pimpl->setRange (newRange.getStart(), newRange.getEnd(), newInt); }
@@ -1761,7 +1759,7 @@ void Slider::mouseWheelMove (const MouseEvent& e, const MouseWheelDetails& wheel
 }
 
 //==============================================================================
-class SliderAccessibilityHandler  : public AccessibilityHandler
+class SliderAccessibilityHandler final : public AccessibilityHandler
 {
 public:
     explicit SliderAccessibilityHandler (Slider& sliderToWrap)
@@ -1776,7 +1774,7 @@ public:
     String getHelp() const override   { return slider.getTooltip(); }
 
 private:
-    class ValueInterface  : public AccessibilityValueInterface
+    class ValueInterface final : public AccessibilityValueInterface
     {
     public:
         explicit ValueInterface (Slider& sliderToWrap)

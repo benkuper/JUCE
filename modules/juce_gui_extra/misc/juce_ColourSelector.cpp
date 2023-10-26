@@ -26,7 +26,9 @@
 namespace juce
 {
 
-    struct ColourComponentSlider : public Slider
+struct ColourComponentSlider final : public Slider
+{
+    ColourComponentSlider (const String& name)  : Slider (name)
     {
         ColourComponentSlider(const String& name, bool showHexValue = true) : Slider(name), showHexValue(showHexValue)
         {
@@ -43,8 +45,16 @@ namespace juce
             return (double)(showHexValue ? text.getHexValue32() : text.getIntValue());
         }
 
-        bool showHexValue;
-    };
+//==============================================================================
+class ColourSelector::ColourSpaceView final : public Component
+{
+public:
+    ColourSpaceView (ColourSelector& cs, float& hue, float& sat, float& val, int edgeSize)
+        : owner (cs), h (hue), s (sat), v (val), edge (edgeSize)
+    {
+        addAndMakeVisible (marker);
+        setMouseCursor (MouseCursor::CrosshairCursor);
+    }
 
     //==============================================================================
     class ColourSelector::ColourSpaceView : public Component
@@ -143,22 +153,7 @@ namespace juce
             }
         };
 
-        ColourSpaceMarker marker;
-
-        void updateMarker()
-        {
-            auto markerSize = jmax(14, edge * 2);
-            auto area = getLocalBounds().reduced(edge);
-
-            marker.setBounds(Rectangle<int>(markerSize, markerSize)
-                .withCentre(area.getRelativePoint(h, s)));
-        }
-
-        JUCE_DECLARE_NON_COPYABLE(ColourSpaceView)
-    };
-
-    //==============================================================================
-    class ColourSelector::HueSelectorComp : public Component
+    struct ColourSpaceMarker final : public Component
     {
     public:
         HueSelectorComp(ColourSelector& cs, float& hue, int edgeSize)
@@ -200,10 +195,15 @@ namespace juce
             owner.setHue((float)(e.y - edge) / (float)(getHeight() - edge * 2));
         }
 
-        void updateIfNeeded()
-        {
-            resized();
-        }
+//==============================================================================
+class ColourSelector::HueSelectorComp final : public Component
+{
+public:
+    HueSelectorComp (ColourSelector& cs, float& hue, int edgeSize)
+        : owner (cs), h (hue), edge (edgeSize)
+    {
+        addAndMakeVisible (marker);
+    }
 
     private:
         ColourSelector& owner;
@@ -244,10 +244,7 @@ namespace juce
         JUCE_DECLARE_NON_COPYABLE(HueSelectorComp)
     };
 
-
-
-
-    class ColourSelector::ValueSelectorComp : public Component
+    struct HueSelectorMarker final : public Component
     {
     public:
         ValueSelectorComp(ColourSelector& cs, float& hue, float& sat, float& value, int edgeSize)
@@ -289,10 +286,14 @@ namespace juce
             owner.setValue(1 - ((e.y - edge) / (float)(getHeight() - edge * 2)));
         }
 
-        void updateIfNeeded()
-        {
-            resized();
-        }
+//==============================================================================
+class ColourSelector::SwatchComponent final : public Component
+{
+public:
+    SwatchComponent (ColourSelector& cs, int itemIndex)
+        : owner (cs), index (itemIndex)
+    {
+    }
 
     private:
         ColourSelector& owner;
@@ -308,10 +309,12 @@ namespace juce
                 setInterceptsMouseClicks(false, false);
             }
 
-            void paint(Graphics& g) override
-            {
-                auto cw = (float)getWidth();
-                auto ch = (float)getHeight();
+    void mouseDown (const MouseEvent&) override
+    {
+        PopupMenu m;
+        m.addItem (1, TRANS ("Use this swatch as the current colour"));
+        m.addSeparator();
+        m.addItem (2, TRANS ("Set this swatch to the current colour"));
 
                 Path p;
                 p.addTriangle(1.0f, 1.0f,
@@ -368,14 +371,15 @@ namespace juce
         ColourSelector& owner;
         const int index;
 
-        static void menuStaticCallback(int result, SwatchComponent* comp)
-        {
-            if (comp != nullptr)
-            {
-                if (result == 1)  comp->setColourFromSwatch();
-                if (result == 2)  comp->setSwatchFromColour();
-            }
-        }
+//==============================================================================
+class ColourSelector::ColourPreviewComp final : public Component
+{
+public:
+    ColourPreviewComp (ColourSelector& cs, bool isEditable)
+        : owner (cs)
+    {
+        colourLabel.setFont (labelFont);
+        colourLabel.setJustificationType (Justification::centred);
 
         void setColourFromSwatch()
         {
@@ -723,11 +727,7 @@ namespace juce
 
         if (numSwatches > 0)
         {
-            const int startX = 8;
-            const int xGap = 4;
-            const int yGap = 4;
-            const int swatchWidth = (getWidth() - startX * 2) / swatchesPerRow;
-            y += edgeGap;
+            auto* sc = swatchComponents.getUnchecked (i);
 
             if (swatchComponents.size() != numSwatches)
             {

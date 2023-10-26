@@ -26,14 +26,14 @@
 namespace juce
 {
 
-pointer_sized_int VSTCallbackHandler::handleVstPluginCanDo ([[maybe_unused]] int32 index,
-                                                            [[maybe_unused]] pointer_sized_int value,
-                                                            [[maybe_unused]] void* ptr,
-                                                            [[maybe_unused]] float opt)
+struct WindowUtilsInternal
 {
-    return 0;
-}
+    inline static int numAlwaysOnTopPeers = 0;
+};
 
-void VSTCallbackHandler::handleVstHostCallbackAvailable ([[maybe_unused]] std::function<VstHostCallbackType>&& callback) {}
+bool WindowUtils::areThereAnyAlwaysOnTopWindows()
+{
+    return WindowUtilsInternal::numAlwaysOnTopPeers > 0;
+}
 
 } // namespace juce

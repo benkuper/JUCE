@@ -27,7 +27,7 @@ namespace juce
 {
 
 //==============================================================================
-class CodeEditorComponent::CodeEditorAccessibilityHandler  : public AccessibilityHandler
+class CodeEditorComponent::CodeEditorAccessibilityHandler final : public AccessibilityHandler
 {
 public:
     explicit CodeEditorAccessibilityHandler (CodeEditorComponent& codeEditorComponentToWrap)
@@ -40,7 +40,7 @@ public:
     }
 
 private:
-    class CodeEditorComponentTextInterface  : public AccessibilityTextInterface
+    class CodeEditorComponentTextInterface final : public AccessibilityTextInterface
     {
     public:
         explicit CodeEditorComponentTextInterface (CodeEditorComponent& codeEditorComponentToWrap)
@@ -384,7 +384,7 @@ private:
 };
 
 //==============================================================================
-class CodeEditorComponent::GutterComponent  : public Component
+class CodeEditorComponent::GutterComponent final : public Component
 {
 public:
     GutterComponent() {}
@@ -476,8 +476,6 @@ CodeEditorComponent::CodeEditorComponent (CodeDocument& doc, CodeTokeniser* cons
 
 CodeEditorComponent::~CodeEditorComponent()
 {
-    giveAwayKeyboardFocus();
-
     if (auto* peer = getPeer())
         peer->refreshTextInputTarget();
 
@@ -586,7 +584,7 @@ void CodeEditorComponent::paint (Graphics& g)
         RectangleList<float> highlightArea;
 
         for (int i = firstLineToDraw; i < lastLineToDraw; ++i)
-            if (const auto area = lines.getUnchecked(i)->getHighlightArea (x, lineHeight * i, lineHeight, charWidth))
+            if (const auto area = lines.getUnchecked (i)->getHighlightArea (x, lineHeight * i, lineHeight, charWidth))
                 highlightArea.add (*area);
 
         g.setColour (findColour (CodeEditorComponent::highlightColourId));
@@ -594,7 +592,7 @@ void CodeEditorComponent::paint (Graphics& g)
     }
 
     for (int i = firstLineToDraw; i < lastLineToDraw; ++i)
-        lines.getUnchecked(i)->draw (*this, g, font, rightClip, x, lineHeight * i, lineHeight, charWidth);
+        lines.getUnchecked (i)->draw (*this, g, font, rightClip, x, lineHeight * i, lineHeight, charWidth);
 }
 
 void CodeEditorComponent::setScrollbarThickness (const int thickness)
@@ -637,7 +635,7 @@ void CodeEditorComponent::rebuildLineTokens()
 
     for (int i = 0; i < numNeeded; ++i)
     {
-        if (lines.getUnchecked(i)->update (document, firstLineOnScreen + i, source, codeTokeniser,
+        if (lines.getUnchecked (i)->update (document, firstLineOnScreen + i, source, codeTokeniser,
                                            spacesPerTab, selectionStart, selectionEnd))
         {
             minLineToRepaint = jmin (minLineToRepaint, i);

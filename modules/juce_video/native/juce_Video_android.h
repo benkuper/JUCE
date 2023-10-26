@@ -921,7 +921,7 @@ private:
                 auto* env = getEnv();
 
                 // Perform a potentially pending volume setting
-                if (lastAudioVolume != std::numeric_limits<float>::min())
+                if (! exactlyEqual (lastAudioVolume, std::numeric_limits<float>::min()))
                     env->CallVoidMethod (nativeMediaPlayer, AndroidMediaPlayer.setVolume, (jfloat) lastAudioVolume, (jfloat) lastAudioVolume);
 
                 env->CallVoidMethod (nativeMediaPlayer, AndroidMediaPlayer.start);
@@ -1681,8 +1681,7 @@ private:
                                            if (weakThis == nullptr)
                                                return;
 
-                                           if (weakThis->owner.owner.onGlobalMediaVolumeChanged != nullptr)
-                                               weakThis->owner.owner.onGlobalMediaVolumeChanged();
+                                           NullCheckedInvocation::invoke (weakThis->owner.owner.onGlobalMediaVolumeChanged);
                                        });
 
         }
@@ -1723,20 +1722,17 @@ private:
 
     void errorOccurred (const String& errorMessage)
     {
-        if (owner.onErrorOccurred != nullptr)
-            owner.onErrorOccurred (errorMessage);
+        NullCheckedInvocation::invoke (owner.onErrorOccurred, errorMessage);
     }
 
     void playbackStarted()
     {
-        if (owner.onPlaybackStarted != nullptr)
-            owner.onPlaybackStarted();
+        NullCheckedInvocation::invoke (owner.onPlaybackStarted);
     }
 
     void playbackStopped()
     {
-        if (owner.onPlaybackStopped != nullptr)
-            owner.onPlaybackStopped();
+        NullCheckedInvocation::invoke (owner.onPlaybackStopped);
     }
 
     //==============================================================================

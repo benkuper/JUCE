@@ -406,7 +406,7 @@ String OSCAddressPattern::toString() const noexcept
 //==============================================================================
 #if JUCE_UNIT_TESTS
 
-class OSCAddressTests : public UnitTest
+class OSCAddressTests final : public UnitTest
 {
 public:
     OSCAddressTests()
@@ -452,7 +452,7 @@ static OSCAddressTests OSCAddressUnitTests;
 
 //==============================================================================
 
-class OSCAddressPatternTests  : public UnitTest
+class OSCAddressPatternTests final : public UnitTest
 {
 public:
     OSCAddressPatternTests()
@@ -593,7 +593,7 @@ static OSCAddressPatternTests OSCAddressPatternUnitTests;
 
 //==============================================================================
 
-class OSCPatternMatcherTests : public UnitTest
+class OSCPatternMatcherTests final : public UnitTest
 {
 public:
     OSCPatternMatcherTests()

@@ -146,8 +146,11 @@ struct CameraDevice::Pimpl
        #if JUCE_USE_NEW_CAMERA_API
         if (@available (macOS 10.15, *))
         {
-            auto* discovery = [AVCaptureDeviceDiscoverySession discoverySessionWithDeviceTypes: @[AVCaptureDeviceTypeBuiltInWideAngleCamera,
-                                                                                                AVCaptureDeviceTypeExternalUnknown]
+            JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wdeprecated-declarations")
+            const auto deviceType = AVCaptureDeviceTypeExternalUnknown;
+            JUCE_END_IGNORE_WARNINGS_GCC_LIKE
+
+            auto* discovery = [AVCaptureDeviceDiscoverySession discoverySessionWithDeviceTypes: @[AVCaptureDeviceTypeBuiltInWideAngleCamera, deviceType]
                                                                                      mediaType: AVMediaTypeVideo
                                                                                       position: AVCaptureDevicePositionUnspecified];
 
@@ -520,8 +523,8 @@ private:
 
         MessageManager::callAsync ([weakRef = WeakReference<Pimpl> { this }, image]() mutable
         {
-            if (weakRef != nullptr && weakRef->pictureTakenCallback != nullptr)
-                weakRef->pictureTakenCallback (image);
+            if (weakRef != nullptr)
+                NullCheckedInvocation::invoke (weakRef->pictureTakenCallback, image);
         });
     }
 
@@ -548,8 +551,7 @@ private:
     {
         JUCE_CAMERA_LOG ("cameraSessionRuntimeError(), error = " + error);
 
-        if (owner.onErrorOccurred != nullptr)
-            owner.onErrorOccurred (error);
+        NullCheckedInvocation::invoke (owner.onErrorOccurred, error);
     }
 
     //==============================================================================

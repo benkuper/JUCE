@@ -615,6 +615,11 @@ bool LookAndFeel_V2::isProgressBarOpaque (ProgressBar& progressBar)
     return progressBar.findColour (ProgressBar::backgroundColourId).isOpaque();
 }
 
+ProgressBar::Style LookAndFeel_V2::getDefaultProgressBarStyle (const ProgressBar&)
+{
+    return ProgressBar::Style::linear;
+}
+
 bool LookAndFeel_V2::areScrollbarButtonsVisible()
 {
     return true;
@@ -1373,13 +1378,13 @@ void LookAndFeel_V2::drawLinearSliderBackground (Graphics& g, int x, int y, int 
     g.strokePath (indent, PathStrokeType (0.5f));
 }
 
-void LookAndFeel_V2::drawLinearSliderOutline (Graphics& g, int, int, int width, int height,
+void LookAndFeel_V2::drawLinearSliderOutline (Graphics& g, int, int, int, int,
                                               const Slider::SliderStyle, Slider& slider)
 {
     if (slider.getTextBoxPosition() == Slider::NoTextBox)
     {
         g.setColour (slider.findColour (Slider::textBoxOutlineColourId));
-        g.drawRect (0, 0, width, height, 1);
+        g.drawRect (0, 0, slider.getWidth(), slider.getHeight(), 1);
     }
 }
 
@@ -1586,7 +1591,7 @@ Button* LookAndFeel_V2::createSliderButton (Slider&, const bool isIncrement)
     return new TextButton (isIncrement ? "+" : "-", String());
 }
 
-class LookAndFeel_V2::SliderLabelComp  : public Label
+class LookAndFeel_V2::SliderLabelComp final : public Label
 {
 public:
     SliderLabelComp() : Label ({}, {}) {}
@@ -1740,7 +1745,7 @@ void LookAndFeel_V2::drawTooltip (Graphics& g, const String& text, int width, in
 //==============================================================================
 Button* LookAndFeel_V2::createFilenameComponentBrowseButton (const String& text)
 {
-    return new TextButton (text, TRANS("click to browse for a different file"));
+    return new TextButton (text, TRANS ("click to browse for a different file"));
 }
 
 void LookAndFeel_V2::layoutFilenameComponent (FilenameComponent& filenameComp,
@@ -1907,7 +1912,7 @@ void LookAndFeel_V2::drawDocumentWindowTitleBar (DocumentWindow& window, Graphic
 }
 
 //==============================================================================
-class LookAndFeel_V2::GlassWindowButton   : public Button
+class LookAndFeel_V2::GlassWindowButton final : public Button
 {
 public:
     GlassWindowButton (const String& name, Colour col,
@@ -2057,7 +2062,7 @@ std::unique_ptr<DropShadower> LookAndFeel_V2::createDropShadowerForComponent (Co
 
 std::unique_ptr<FocusOutline> LookAndFeel_V2::createFocusOutlineForComponent (Component&)
 {
-    struct WindowProperties  : public FocusOutline::OutlineWindowProperties
+    struct WindowProperties final : public FocusOutline::OutlineWindowProperties
     {
         Rectangle<int> getOutlineBounds (Component& c) override
         {

@@ -50,7 +50,7 @@ AlertWindow::AlertWindow (const String& title,
      associatedComponent (comp),
      desktopScale (comp != nullptr ? Component::getApproximateScaleFactorForComponent (comp) : 1.0f)
 {
-    setAlwaysOnTop (detail::WindowingHelpers::areThereAnyAlwaysOnTopWindows());
+    setAlwaysOnTop (WindowUtils::areThereAnyAlwaysOnTopWindows());
 
     accessibleMessageLabel.setColour (Label::textColourId,       Colours::transparentBlack);
     accessibleMessageLabel.setColour (Label::backgroundColourId, Colours::transparentBlack);
@@ -243,7 +243,7 @@ ComboBox* AlertWindow::getComboBoxComponent (const String& nameOfList) const
 }
 
 //==============================================================================
-class AlertTextComp  : public TextEditor
+class AlertTextComp final : public TextEditor
 {
 public:
     AlertTextComp (AlertWindow& owner, const String& message, const Font& font)
@@ -294,9 +294,9 @@ void AlertWindow::addTextBlock (const String& textBlock)
 }
 
 //==============================================================================
-void AlertWindow::addProgressBarComponent (double& progressValue)
+void AlertWindow::addProgressBarComponent (double& progressValue, std::optional<ProgressBar::Style> style)
 {
-    auto* pb = new ProgressBar (progressValue);
+    auto* pb = new ProgressBar (progressValue, style);
     progressBars.add (pb);
     allComps.add (pb);
     addAndMakeVisible (pb);
@@ -344,7 +344,7 @@ void AlertWindow::paint (Graphics& g)
 
     for (int i = textBoxes.size(); --i >= 0;)
     {
-        auto* te = textBoxes.getUnchecked(i);
+        auto* te = textBoxes.getUnchecked (i);
 
         g.drawFittedText (textboxNames[i],
                           te->getX(), te->getY() - 14,
@@ -354,7 +354,7 @@ void AlertWindow::paint (Graphics& g)
 
     for (int i = comboBoxNames.size(); --i >= 0;)
     {
-        auto* cb = comboBoxes.getUnchecked(i);
+        auto* cb = comboBoxes.getUnchecked (i);
 
         g.drawFittedText (comboBoxNames[i],
                           cb->getX(), cb->getY() - 14,
@@ -556,7 +556,7 @@ bool AlertWindow::keyPressed (const KeyPress& key)
 
     if (key.isKeyCode (KeyPress::returnKey) && buttons.size() == 1)
     {
-        buttons.getUnchecked(0)->triggerClick();
+        buttons.getUnchecked (0)->triggerClick();
         return true;
     }
 
@@ -589,7 +589,7 @@ void AlertWindow::showMessageBox (MessageBoxIconType iconType,
             .withIconType (iconType)
             .withTitle (title)
             .withMessage (message)
-            .withButton (buttonText.isEmpty() ? TRANS("OK") : buttonText)
+            .withButton (buttonText.isEmpty() ? TRANS ("OK") : buttonText)
             .withAssociatedComponent (associatedComponent));
 }
 

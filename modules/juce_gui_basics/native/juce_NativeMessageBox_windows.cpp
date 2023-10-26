@@ -40,7 +40,7 @@ namespace juce::detail
 
 std::unique_ptr<ScopedMessageBoxInterface> ScopedMessageBoxInterface::create (const MessageBoxOptions& options)
 {
-    class WindowsMessageBoxBase  : public ScopedMessageBoxInterface
+    class WindowsMessageBoxBase : public ScopedMessageBoxInterface
     {
     public:
         explicit WindowsMessageBoxBase (Component* comp)
@@ -106,7 +106,7 @@ std::unique_ptr<ScopedMessageBoxInterface> ScopedMessageBoxInterface::create (co
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WindowsMessageBoxBase)
     };
 
-    class PreVistaMessageBox  : public WindowsMessageBoxBase
+    class PreVistaMessageBox final : public WindowsMessageBoxBase
     {
     public:
         PreVistaMessageBox (const MessageBoxOptions& opts, UINT extraFlags)
@@ -175,7 +175,7 @@ std::unique_ptr<ScopedMessageBoxInterface> ScopedMessageBoxInterface::create (co
         {
             // this window can get lost behind JUCE windows which are set to be alwaysOnTop
             // so if there are any set it to be topmost
-            const auto topmostFlag = detail::WindowingHelpers::areThereAnyAlwaysOnTopWindows() ? MB_TOPMOST : 0;
+            const auto topmostFlag = WindowUtils::areThereAnyAlwaysOnTopWindows() ? MB_TOPMOST : 0;
 
             const auto iconFlags = [&]() -> decltype (topmostFlag)
             {
@@ -199,7 +199,7 @@ std::unique_ptr<ScopedMessageBoxInterface> ScopedMessageBoxInterface::create (co
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PreVistaMessageBox)
     };
 
-    class WindowsTaskDialog  : public WindowsMessageBoxBase
+    class WindowsTaskDialog final : public WindowsMessageBoxBase
     {
         static auto getTaskDialogFunc()
         {

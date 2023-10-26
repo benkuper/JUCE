@@ -27,11 +27,11 @@
 
 
 //==============================================================================
-class MakefileProjectExporter  : public ProjectExporter
+class MakefileProjectExporter final : public ProjectExporter
 {
 protected:
     //==============================================================================
-    class MakeBuildConfiguration  : public BuildConfiguration
+    class MakeBuildConfiguration final : public BuildConfiguration
     {
     public:
         MakeBuildConfiguration (Project& p, const ValueTree& settings, const ProjectExporter& e)
@@ -125,18 +125,18 @@ protected:
 
 public:
     //==============================================================================
-    class MakefileTarget : public build_tools::ProjectType::Target
+    class MakefileTarget final : public build_tools::ProjectType::Target
     {
     public:
         MakefileTarget (build_tools::ProjectType::Target::Type targetType, const MakefileProjectExporter& exporter)
-            : build_tools::ProjectType::Target (targetType), owner (exporter)
+            : Target (targetType), owner (exporter)
         {}
 
         StringArray getCompilerFlags() const
         {
             StringArray result;
 
-            if (getTargetFileType() == sharedLibraryOrDLL || getTargetFileType() == pluginBundle)
+            if (getTargetFileType() == sharedLibraryOrDLL || getTargetFileType() == pluginBundle || type == SharedCodeTarget)
             {
                 result.add ("-fPIC");
                 result.add ("-fvisibility=hidden");
@@ -299,10 +299,10 @@ public:
 
             for (auto& [path, flags] : filesToCompile)
             {
-                const auto additionalTargetDependencies = [&path = path, this]
+                const auto additionalTargetDependencies = [&p = path, this]
                 {
                     if (   owner.linuxSubprocessHelperProperties.shouldUseLinuxSubprocessHelper()
-                        && path.getFileName().contains ("include_juce_gui_extra.cpp"))
+                        && p.getFileName().contains ("include_juce_gui_extra.cpp"))
                     {
                         return owner.linuxSubprocessHelperProperties
                             .getLinuxSubprocessHelperBinaryDataSource()
@@ -356,8 +356,10 @@ public:
 
             if (type == LV2PlugIn)
                 out << " $(JUCE_OUTDIR)/$(JUCE_TARGET_LV2_MANIFEST_HELPER)";
-            else if (type == VST3PlugIn && owner.project.isVst3ManifestEnabled())
+            else if (type == VST3PlugIn)
                 out << " $(JUCE_OUTDIR)/$(JUCE_TARGET_VST3_MANIFEST_HELPER)";
+            else if (type == VST3Helper)
+                out << " $(JUCE_OBJDIR)/cxxfs.cmd";
 
             out << newLine;
 
@@ -399,6 +401,9 @@ public:
 
                 out << "$(JUCE_LDFLAGS) $(shell cat $(JUCE_OBJDIR)/execinfo.cmd) ";
 
+                if (type == VST3Helper)
+                    out << "$(shell cat $(JUCE_OBJDIR)/cxxfs.cmd) ";
+
                 if (getTargetFileType() == sharedLibraryOrDLL || getTargetFileType() == pluginBundle
                         || type == GUIApp || type == StandalonePlugIn)
                     out << "$(JUCE_LDFLAGS_" << getTargetVarName() << ") ";
@@ -408,16 +413,14 @@ public:
 
             if (type == VST3PlugIn)
             {
-                if (owner.project.isVst3ManifestEnabled())
-                {
-                    out << "\t$(V_AT) $(JUCE_OUTDIR)/$(JUCE_TARGET_VST3_MANIFEST_HELPER) "
-                           "-create "
-                           "-version " << owner.project.getVersionString().quoted() << " "
-                           "-path \"$(JUCE_OUTDIR)/$(JUCE_VST3DIR)\" "
-                           "-output \"$(JUCE_OUTDIR)/$(JUCE_VST3DIR)/Contents/moduleinfo.json\" " << newLine;
-                }
-
-                out << "\t-$(V_AT)[ ! \"$(JUCE_VST3DESTDIR)\" ] || (mkdir -p $(JUCE_VST3DESTDIR) && cp -R $(JUCE_COPYCMD_VST3))" << newLine;
+                out << "\t-$(V_AT)mkdir -p $(JUCE_OUTDIR)/$(JUCE_VST3DIR)/Contents/Resources" << newLine
+                    << "\t-$(V_AT)rm -f $(JUCE_OUTDIR)/$(JUCE_VST3DIR)/Contents/moduleinfo.json" << newLine
+                    << "\t$(V_AT) $(JUCE_OUTDIR)/$(JUCE_TARGET_VST3_MANIFEST_HELPER) "
+                       "-create "
+                       "-version " << owner.project.getVersionString().quoted() << " "
+                       "-path $(JUCE_OUTDIR)/$(JUCE_VST3DIR) "
+                       "-output $(JUCE_OUTDIR)/$(JUCE_VST3DIR)/Contents/Resources/moduleinfo.json" << newLine
+                    << "\t-$(V_AT)[ ! \"$(JUCE_VST3DESTDIR)\" ] || (mkdir -p $(JUCE_VST3DESTDIR) && cp -R $(JUCE_COPYCMD_VST3))" << newLine;
             }
             else if (type == VSTPlugIn)
             {
@@ -1200,13 +1203,10 @@ private:
             }
             else if (targetType == MakefileTarget::VST3Helper)
             {
-                for (const auto& source : getVST3HelperProgramSources (*this))
-                {
-                    targetFiles.emplace_back (source.rebased (projectFolder,
-                                                              getTargetFolder(),
-                                                              build_tools::RelativePath::buildTargetFolder),
-                                              String{});
-                }
+                targetFiles.emplace_back (getVST3HelperProgramSource().rebased (projectFolder,
+                                                                                getTargetFolder(),
+                                                                                build_tools::RelativePath::buildTargetFolder),
+                                          String{});
             }
 
             return targetFiles;
@@ -1227,6 +1227,13 @@ private:
             << "\t-$(V_AT)mkdir -p $(@D)" << newLine
             << "\t-@if [ -z \"$(V_AT)\" ]; then echo \"Checking if we need to link libexecinfo\"; fi" << newLine
             << "\t$(V_AT)printf \"int main() { return 0; }\" | $(CXX) -x c++ -o $(@D)/execinfo.x -lexecinfo - >/dev/null 2>&1 && printf -- \"-lexecinfo\" > \"$@\" || touch \"$@\"" << newLine
+            << newLine;
+
+        // stdc++fs is only needed for some compilers
+        out << "$(JUCE_OBJDIR)/cxxfs.cmd:" << newLine
+            << "\t-$(V_AT)mkdir -p $(@D)" << newLine
+            << "\t-@if [ -z \"$(V_AT)\" ]; then echo \"Checking if we need to link stdc++fs\"; fi" << newLine
+            << "\t$(V_AT)printf \"int main() { return 0; }\" | $(CXX) -x c++ -o $(@D)/cxxfs.x -lstdc++fs - >/dev/null 2>&1 && printf -- \"-lstdc++fs\" > \"$@\" || touch \"$@\"" << newLine
             << newLine;
 
         if (linuxSubprocessHelperProperties.shouldUseLinuxSubprocessHelper())

@@ -23,8 +23,6 @@
   ==============================================================================
 */
 
-#include "juce_CGMetalLayerRenderer_mac.h"
-
 @interface NSEvent (DeviceDelta)
 - (float)deviceDeltaX;
 - (float)deviceDeltaY;
@@ -122,7 +120,7 @@ static constexpr int translateVirtualToAsciiKeyCode (int keyCode) noexcept
 constexpr int extendedKeyModifier = 0x30000;
 
 //==============================================================================
-class JuceCALayerDelegate : public ObjCClass<NSObject<CALayerDelegate>>
+class JuceCALayerDelegate final : public ObjCClass<NSObject<CALayerDelegate>>
 {
 public:
     struct Callback
@@ -168,8 +166,8 @@ private:
 };
 
 //==============================================================================
-class NSViewComponentPeer  : public ComponentPeer,
-                             private JuceCALayerDelegate::Callback
+class NSViewComponentPeer final : public ComponentPeer,
+                                  private JuceCALayerDelegate::Callback
 {
 public:
     NSViewComponentPeer (Component& comp, const int windowStyleFlags, NSView* viewToAttachTo)
@@ -620,7 +618,7 @@ public:
         {
             ++insideToFrontCall;
 
-            if (makeActiveWindow && ! inBecomeKeyWindow)
+            if (makeActiveWindow && ! inBecomeKeyWindow && [window canBecomeKeyWindow])
                 [window makeKeyAndOrderFront: nil];
             else
                 [window orderFront: nil];
@@ -1039,8 +1037,8 @@ public:
             if (! clip.isEmpty())
             {
                 Image temp (component.isOpaque() ? Image::RGB : Image::ARGB,
-                            roundToInt (clipW * displayScale),
-                            roundToInt (clipH * displayScale),
+                            roundToInt ((float) clipW * displayScale),
+                            roundToInt ((float) clipH * displayScale),
                             ! component.isOpaque());
 
                 {
@@ -1566,7 +1564,7 @@ public:
     {
         if (window != nil)
         {
-            if (! inBecomeKeyWindow)
+            if (! inBecomeKeyWindow && [window canBecomeKeyWindow])
                 [window makeKeyWindow];
 
             [window makeFirstResponder: view];
@@ -1759,7 +1757,7 @@ private:
     // avoid unnecessarily duplicating display-link threads.
     SharedResourcePointer<PerScreenDisplayLinks> sharedDisplayLinks;
 
-    class AsyncRepainter : private AsyncUpdater
+    class AsyncRepainter final : private AsyncUpdater
     {
     public:
         explicit AsyncRepainter (NSViewComponentPeer& o) : owner (o) {}
@@ -1896,7 +1894,7 @@ private:
             case NSEventTypeRightMouseUp:
             case NSEventTypeOtherMouseUp:
             case NSEventTypeOtherMouseDragged:
-                if (Desktop::getInstance().getDraggingMouseSource(0) != nullptr)
+                if (Desktop::getInstance().getDraggingMouseSource (0) != nullptr)
                     return false;
                 break;
 
@@ -2009,7 +2007,7 @@ private:
 
 //==============================================================================
 template <typename Base>
-struct NSViewComponentPeerWrapper  : public Base
+struct NSViewComponentPeerWrapper : public Base
 {
     explicit NSViewComponentPeerWrapper (const char* baseName)
         : Base (baseName)
@@ -2033,7 +2031,7 @@ struct NSViewComponentPeerWrapper  : public Base
 };
 
 //==============================================================================
-struct JuceNSViewClass   : public NSViewComponentPeerWrapper<ObjCClass<NSView>>
+struct JuceNSViewClass final : public NSViewComponentPeerWrapper<ObjCClass<NSView>>
 {
     JuceNSViewClass()  : NSViewComponentPeerWrapper ("JUCEView_")
     {
@@ -2104,6 +2102,10 @@ struct JuceNSViewClass   : public NSViewComponentPeerWrapper<ObjCClass<NSView>>
         addMethod (@selector (draggingEnded:),                  draggingExited);
         addMethod (@selector (draggingExited:),                 draggingExited);
 
+        JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wundeclared-selector")
+        addMethod (@selector (clipsToBounds), [] (id, SEL) { return YES; });
+        JUCE_END_IGNORE_WARNINGS_GCC_LIKE
+
         addMethod (@selector (acceptsFirstMouse:), [] (id, SEL, NSEvent*) { return YES; });
 
        #if JUCE_COREGRAPHICS_RENDER_WITH_MULTIPLE_PAINT_CALLS
@@ -2119,7 +2121,6 @@ struct JuceNSViewClass   : public NSViewComponentPeerWrapper<ObjCClass<NSView>>
                     layer.framebufferOnly = NO;
                     layer.pixelFormat = MTLPixelFormatBGRA8Unorm_sRGB;
                     layer.opaque = getOwner (self)->getComponent().isOpaque();
-                    layer.autoresizingMask = kCALayerHeightSizable | kCALayerWidthSizable;
                     layer.needsDisplayOnBoundsChange = YES;
                     layer.drawsAsynchronously = YES;
                     layer.delegate = owner->layerDelegate.get();
@@ -2235,8 +2236,33 @@ struct JuceNSViewClass   : public NSViewComponentPeerWrapper<ObjCClass<NSView>>
         addMethod (@selector (performKeyEquivalent:), [] (id self, SEL s, NSEvent* ev) -> BOOL
         {
             if (auto* owner = getOwner (self))
+            {
+                const auto ref = owner->safeComponent;
+
                 if (owner->sendEventToInputContextOrComponent (ev))
+                {
+                    if (ref == nullptr)
+                        return YES;
+
+                    const auto isFirstResponder = [&]
+                    {
+                        if (auto* v = owner->view)
+                            if (auto* w = v.window)
+                                return w.firstResponder == self;
+
+                        return false;
+                    }();
+
+                    // If the view isn't the first responder, but the view has successfully
+                    // performed the key equivalent, then the key event must have been passed down
+                    // the view hierarchy to this point. In that case, the view won't be sent a
+                    // matching keyUp event, so we simulate it here.
+                    if (! isFirstResponder)
+                        owner->redirectKeyUp (ev);
+
                     return YES;
+                }
+            }
 
             return sendSuperclassMessage<BOOL> (self, s, ev);
         });
@@ -2576,7 +2602,7 @@ private:
 };
 
 //==============================================================================
-struct JuceNSWindowClass   : public NSViewComponentPeerWrapper<ObjCClass<NSWindow>>
+struct JuceNSWindowClass final : public NSViewComponentPeerWrapper<ObjCClass<NSWindow>>
 {
     JuceNSWindowClass()  : NSViewComponentPeerWrapper ("JUCEWindow_")
     {

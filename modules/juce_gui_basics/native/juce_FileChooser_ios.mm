@@ -40,10 +40,10 @@ namespace juce
 #endif
 
 //==============================================================================
-class FileChooser::Native  : public FileChooser::Pimpl,
-                             public detail::NativeModalWrapperComponent,
-                             public AsyncUpdater,
-                             public std::enable_shared_from_this<Native>
+class FileChooser::Native final : public FileChooser::Pimpl,
+                                  public detail::NativeModalWrapperComponent,
+                                  public AsyncUpdater,
+                                  public std::enable_shared_from_this<Native>
 {
 public:
     static std::shared_ptr<Native> make (FileChooser& fileChooser, int flags)
@@ -61,7 +61,7 @@ public:
     {
         jassert (shared_from_this() != nullptr);
 
-        /*  Normally, when deleteWhenDismissed is true, the modal component manger will keep a copy of a raw pointer
+        /*  Normally, when deleteWhenDismissed is true, the modal component manager will keep a copy of a raw pointer
             to our component and delete it when the modal state has ended. However, this is incompatible with
             our class being tracked by shared_ptr as it will force delete our class regardless of the current
             reference count. On the other hand, it's important that the modal manager keeps a reference as it can

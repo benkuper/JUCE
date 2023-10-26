@@ -30,7 +30,7 @@ namespace juce
 // This class has been renamed from CoreGraphicsImage to avoid a symbol
 // collision in Pro Tools 2019.12 and possibly 2020 depending on the Pro Tools
 // release schedule.
-class CoreGraphicsPixelData   : public ImagePixelData
+class CoreGraphicsPixelData final : public ImagePixelData
 {
 public:
     CoreGraphicsPixelData (const Image::PixelFormat format, int w, int h, bool clearImage)
@@ -140,7 +140,7 @@ public:
     detail::ContextPtr context;
     detail::ImagePtr cachedImageRef;
 
-    struct ImageDataContainer   : public ReferenceCountedObject
+    struct ImageDataContainer final : public ReferenceCountedObject
     {
         ImageDataContainer() = default;
 
@@ -221,8 +221,8 @@ void CoreGraphicsContext::setOrigin (Point<int> o)
 {
     CGContextTranslateCTM (context.get(), o.x, -o.y);
 
-    if (lastClipRectIsValid)
-        lastClipRect.translate (-o.x, -o.y);
+    if (lastClipRect.has_value())
+        lastClipRect->translate (-o.x, -o.y);
 }
 
 void CoreGraphicsContext::addTransform (const AffineTransform& transform)
@@ -231,7 +231,7 @@ void CoreGraphicsContext::addTransform (const AffineTransform& transform)
                                     .followedBy (transform)
                                     .translated (0, (float) -flipHeight)
                                     .scaled (1.0f, -1.0f));
-    lastClipRectIsValid = false;
+    lastClipRect.reset();
 
     jassert (getPhysicalPixelScaleFactor() > 0.0f);
 }
@@ -249,14 +249,14 @@ bool CoreGraphicsContext::clipToRectangle (const Rectangle<int>& r)
     CGContextClipToRect (context.get(), CGRectMake (r.getX(), flipHeight - r.getBottom(),
                                                     r.getWidth(), r.getHeight()));
 
-    if (lastClipRectIsValid)
+    if (lastClipRect.has_value())
     {
         // This is actually incorrect, because the actual clip region may be complex, and
         // clipping its bounds to a rect may not be right... But, removing this shortcut
         // doesn't actually fix anything because CoreGraphics also ignores complex regions
         // when calculating the resultant clip bounds, and makes the same mistake!
-        lastClipRect = lastClipRect.getIntersection (r);
-        return ! lastClipRect.isEmpty();
+        lastClipRect = lastClipRect->getIntersection (r);
+        return ! lastClipRect->isEmpty();
     }
 
     return ! isClipEmpty();
@@ -267,7 +267,6 @@ bool CoreGraphicsContext::clipToRectangleListWithoutTest (const RectangleList<in
     if (clipRegion.isEmpty())
     {
         CGContextClipToRect (context.get(), CGRectZero);
-        lastClipRectIsValid = true;
         lastClipRect = Rectangle<int>();
         return false;
     }
@@ -280,7 +279,7 @@ bool CoreGraphicsContext::clipToRectangleListWithoutTest (const RectangleList<in
         rects[i++] = CGRectMake (r.getX(), flipHeight - r.getBottom(), r.getWidth(), r.getHeight());
 
     CGContextClipToRects (context.get(), rects, numRects);
-    lastClipRectIsValid = false;
+    lastClipRect.reset();
     return true;
 }
 
@@ -296,7 +295,7 @@ void CoreGraphicsContext::excludeClipRectangle (const Rectangle<int>& r)
     clipToRectangleListWithoutTest (remaining);
 }
 
-void CoreGraphicsContext::clipToPath (const Path& path, const AffineTransform& transform)
+void CoreGraphicsContext::setContextClipToPath (const Path& path, const AffineTransform& transform)
 {
     createPath (path, transform);
 
@@ -304,8 +303,12 @@ void CoreGraphicsContext::clipToPath (const Path& path, const AffineTransform& t
         CGContextClip (context.get());
     else
         CGContextEOClip (context.get());
+}
 
-    lastClipRectIsValid = false;
+void CoreGraphicsContext::clipToPath (const Path& path, const AffineTransform& transform)
+{
+    setContextClipToPath (path, transform);
+    lastClipRect.reset();
 }
 
 void CoreGraphicsContext::clipToImageAlpha (const Image& sourceImage, const AffineTransform& transform)
@@ -320,7 +323,7 @@ void CoreGraphicsContext::clipToImageAlpha (const Image& sourceImage, const Affi
         auto image = detail::ImagePtr { CoreGraphicsPixelData::createImage (singleChannelImage, greyColourSpace.get()) };
 
         flip();
-        auto t = AffineTransform::verticalFlip (sourceImage.getHeight()).followedBy (transform);
+        auto t = AffineTransform::verticalFlip ((float) sourceImage.getHeight()).followedBy (transform);
         applyTransform (t);
 
         auto r = convertToCGRect (sourceImage.getBounds());
@@ -329,7 +332,7 @@ void CoreGraphicsContext::clipToImageAlpha (const Image& sourceImage, const Affi
         applyTransform (t.inverted());
         flip();
 
-        lastClipRectIsValid = false;
+        lastClipRect.reset();
     }
 }
 
@@ -340,18 +343,17 @@ bool CoreGraphicsContext::clipRegionIntersects (const Rectangle<int>& r)
 
 Rectangle<int> CoreGraphicsContext::getClipBounds() const
 {
-    if (! lastClipRectIsValid)
+    if (! lastClipRect.has_value())
     {
         auto bounds = CGRectIntegral (CGContextGetClipBoundingBox (context.get()));
 
-        lastClipRectIsValid = true;
-        lastClipRect.setBounds (roundToInt (bounds.origin.x),
-                                roundToInt (flipHeight - (bounds.origin.y + bounds.size.height)),
-                                roundToInt (bounds.size.width),
-                                roundToInt (bounds.size.height));
+        lastClipRect = Rectangle<int> (roundToInt (bounds.origin.x),
+                                       roundToInt (flipHeight - (bounds.origin.y + bounds.size.height)),
+                                       roundToInt (bounds.size.width),
+                                       roundToInt (bounds.size.height));
     }
 
-    return lastClipRect;
+    return *lastClipRect;
 }
 
 bool CoreGraphicsContext::isClipEmpty() const
@@ -376,7 +378,7 @@ void CoreGraphicsContext::restoreState()
         CGContextSetTextMatrix (context.get(), state->textMatrix);
 
         stateStack.removeLast (1, false);
-        lastClipRectIsValid = false;
+        lastClipRect.reset();
     }
     else
     {
@@ -470,56 +472,45 @@ void CoreGraphicsContext::fillCGRect (const CGRect& cgRect, bool replaceExisting
         CGContextSetBlendMode (context.get(), kCGBlendModeCopy);
         fillCGRect (cgRect, false);
         CGContextSetBlendMode (context.get(), kCGBlendModeNormal);
+        return;
     }
-    else
+
+    if (state->fillType.isColour())
     {
-        if (state->fillType.isColour())
-        {
-            CGContextFillRect (context.get(), cgRect);
-        }
-        else
-        {
-            ScopedCGContextState scopedState (context.get());
-
-            CGContextClipToRect (context.get(), cgRect);
-
-            if (state->fillType.isGradient())
-                drawGradient();
-            else
-                drawImage (state->fillType.image, state->fillType.transform, true);
-        }
+        CGContextFillRect (context.get(), cgRect);
+        return;
     }
+
+    ScopedCGContextState scopedState (context.get());
+    CGContextClipToRect (context.get(), cgRect);
+
+    if (state->fillType.isGradient())
+        drawGradient();
+    else
+        drawImage (state->fillType.image, state->fillType.transform, true);
 }
 
 void CoreGraphicsContext::fillPath (const Path& path, const AffineTransform& transform)
 {
-    ScopedCGContextState scopedState (context.get());
-
     if (state->fillType.isColour())
     {
-        flip();
-        applyTransform (transform);
-        createPath (path);
+        createPath (path, transform);
 
         if (path.isUsingNonZeroWinding())
             CGContextFillPath (context.get());
         else
             CGContextEOFillPath (context.get());
+
+        return;
     }
+
+    ScopedCGContextState scopedState (context.get());
+    setContextClipToPath (path, transform);
+
+    if (state->fillType.isGradient())
+        drawGradient();
     else
-    {
-        createPath (path, transform);
-
-        if (path.isUsingNonZeroWinding())
-            CGContextClip (context.get());
-        else
-            CGContextEOClip (context.get());
-
-        if (state->fillType.isGradient())
-            drawGradient();
-        else
-            drawImage (state->fillType.image, state->fillType.transform, true);
-    }
+        drawImage (state->fillType.image, state->fillType.transform, true);
 }
 
 void CoreGraphicsContext::drawImage (const Image& sourceImage, const AffineTransform& transform)
@@ -540,7 +531,7 @@ void CoreGraphicsContext::drawImage (const Image& sourceImage, const AffineTrans
     CGContextSetAlpha (context.get(), state->fillType.getOpacity());
 
     flip();
-    applyTransform (AffineTransform::verticalFlip (ih).followedBy (transform));
+    applyTransform (AffineTransform::verticalFlip ((float) ih).followedBy (transform));
     auto imageRect = CGRectMake (0, 0, iw, ih);
 
     if (fillEntireClipAsTiles)
@@ -602,28 +593,25 @@ void CoreGraphicsContext::drawLine (const Line<float>& line)
 
 void CoreGraphicsContext::fillRectList (const RectangleList<float>& list)
 {
-    HeapBlock<CGRect> rects (list.getNumRectangles());
-
-    size_t num = 0;
+    std::vector<CGRect> rects;
+    rects.reserve ((size_t) list.getNumRectangles());
 
     for (auto& r : list)
-        rects[num++] = CGRectMake (r.getX(), flipHeight - r.getBottom(), r.getWidth(), r.getHeight());
+        rects.push_back (CGRectMake (r.getX(), flipHeight - r.getBottom(), r.getWidth(), r.getHeight()));
 
     if (state->fillType.isColour())
     {
-        CGContextFillRects (context.get(), rects, num);
+        CGContextFillRects (context.get(), rects.data(), rects.size());
+        return;
     }
+
+    ScopedCGContextState scopedState (context.get());
+    CGContextClipToRects (context.get(), rects.data(), rects.size());
+
+    if (state->fillType.isGradient())
+        drawGradient();
     else
-    {
-        ScopedCGContextState scopedState (context.get());
-
-        CGContextClipToRects (context.get(), rects, num);
-
-        if (state->fillType.isGradient())
-            drawGradient();
-        else
-            drawImage (state->fillType.image, state->fillType.transform, true);
-    }
+        drawImage (state->fillType.image, state->fillType.transform, true);
 }
 
 void CoreGraphicsContext::setFont (const Font& newFont)
@@ -712,10 +700,8 @@ CoreGraphicsContext::SavedState::SavedState()
 CoreGraphicsContext::SavedState::SavedState (const SavedState& other)
     : fillType (other.fillType), font (other.font), fontRef (other.fontRef),
       textMatrix (other.textMatrix), inverseTextMatrix (other.inverseTextMatrix),
-      gradient (other.gradient.get())
+      gradient (other.gradient.get() != nullptr ? CGGradientRetain (other.gradient.get()) : nullptr)
 {
-    if (gradient != nullptr)
-        CGGradientRetain (gradient.get());
 }
 
 CoreGraphicsContext::SavedState::~SavedState() = default;
@@ -729,9 +715,9 @@ void CoreGraphicsContext::SavedState::setFill (const FillType& newFill)
 static CGGradientRef createGradient (const ColourGradient& g, CGColorSpaceRef colourSpace)
 {
     auto numColours = g.getNumColours();
-    auto data = (CGFloat*) alloca ((size_t) numColours * 5 * sizeof (CGFloat));
-    auto locations = data;
-    auto components = data + numColours;
+    std::vector<CGFloat> data ((size_t) numColours * 5);
+    auto locations = data.data();
+    auto components = locations + numColours;
     auto comps = components;
 
     for (int i = 0; i < numColours; ++i)
@@ -771,24 +757,6 @@ void CoreGraphicsContext::drawGradient()
     else
         CGContextDrawLinearGradient (context.get(), state->gradient.get(), p1, p2,
                                      kCGGradientDrawsBeforeStartLocation | kCGGradientDrawsAfterEndLocation);
-}
-
-void CoreGraphicsContext::createPath (const Path& path) const
-{
-    CGContextBeginPath (context.get());
-
-    for (Path::Iterator i (path); i.next();)
-    {
-        switch (i.elementType)
-        {
-            case Path::Iterator::startNewSubPath:  CGContextMoveToPoint (context.get(), i.x1, i.y1); break;
-            case Path::Iterator::lineTo:           CGContextAddLineToPoint (context.get(), i.x1, i.y1); break;
-            case Path::Iterator::quadraticTo:      CGContextAddQuadCurveToPoint (context.get(), i.x1, i.y1, i.x2, i.y2); break;
-            case Path::Iterator::cubicTo:          CGContextAddCurveToPoint (context.get(), i.x1, i.y1, i.x2, i.y2, i.x3, i.y3); break;
-            case Path::Iterator::closePath:        CGContextClosePath (context.get()); break;
-            default:                               jassertfalse; break;
-        }
-    }
 }
 
 void CoreGraphicsContext::createPath (const Path& path, const AffineTransform& transform) const
@@ -845,7 +813,7 @@ void CoreGraphicsContext::applyTransform (const AffineTransform& transform) cons
 #if USE_COREGRAPHICS_RENDERING && JUCE_USE_COREIMAGE_LOADER
 Image juce_loadWithCoreImage (InputStream& input)
 {
-    struct MemoryBlockHolder   : public ReferenceCountedObject
+    struct MemoryBlockHolder final : public ReferenceCountedObject
     {
         using Ptr = ReferenceCountedObjectPtr<MemoryBlockHolder>;
         MemoryBlock block;
@@ -944,7 +912,7 @@ CGContextRef juce_getImageContext (const Image& image)
      Image retval (Image::ARGB, (int) CGImageGetWidth (image), (int) CGImageGetHeight (image), true);
      CGContextRef ctx = juce_getImageContext (retval);
 
-     CGContextDrawImage (ctx, CGRectMake (0.0f, 0.0f, CGImageGetWidth (image), CGImageGetHeight (image)), image);
+     CGContextDrawImage (ctx, CGRectMake (0.0f, 0.0f, (CGFloat) CGImageGetWidth (image), (CGFloat) CGImageGetHeight (image)), image);
 
      return retval;
  }

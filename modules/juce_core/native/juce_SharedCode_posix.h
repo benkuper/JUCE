@@ -854,7 +854,7 @@ class PosixThreadAttribute
 public:
     explicit PosixThreadAttribute (size_t stackSize)
     {
-        if (valid)
+        if (valid && stackSize != 0)
             pthread_attr_setstacksize (&attr, stackSize);
     }
 
@@ -894,7 +894,7 @@ public:
                 const auto min = jmax (0, sched_get_priority_min (SCHED_RR));
                 const auto max = jmax (1, sched_get_priority_max (SCHED_RR));
 
-                return jmap (rt->priority, 0, 10, min, max);
+                return jmap (rt->getPriority(), 0, 10, min, max);
             }
 
             // We only use this helper if we're on an old macos/ios platform that might
@@ -959,11 +959,13 @@ private:
     int priority;
 };
 
-static void* makeThreadHandle (PosixThreadAttribute& attr, Thread* userData, void* (*threadEntryProc) (void*))
+static void* makeThreadHandle (PosixThreadAttribute& attr, void* userData, void* (*threadEntryProc) (void*))
 {
     pthread_t handle = {};
 
-    if (pthread_create (&handle, attr.get(), threadEntryProc, userData) != 0)
+    const auto status = pthread_create (&handle, attr.get(), threadEntryProc, userData);
+
+    if (status != 0)
         return nullptr;
 
     pthread_detach (handle);
