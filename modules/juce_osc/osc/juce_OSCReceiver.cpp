@@ -42,13 +42,23 @@ namespace
     class OSCInputStream
     {
     public:
+
+
         /** Creates an OSCInputStream.
 
             @param sourceData               the block of data to use as the stream's source
             @param sourceDataSize           the number of bytes in the source data block
         */
+
+#if JUCE_IP_AND_PORT_DETECTION
+        OSCInputStream(const void* sourceData, size_t sourceDataSize, const String& senderIPAddress, const int& senderPortNumber) :
+            input(sourceData, sourceDataSize, false),
+            senderIPAddress(senderIPAddress),
+            senderPortNumber(senderPortNumber)
+#else
         OSCInputStream (const void* sourceData, size_t sourceDataSize)
             : input (sourceData, sourceDataSize, false)
+#endif
         {}
 
         //==============================================================================
@@ -179,6 +189,9 @@ namespace
         {
             switch (type)
             {
+                case OSCTypes::I:			return OSCArgument();
+                case OSCTypes::T:			return OSCArgument(true);
+                case OSCTypes::F:			return OSCArgument(false);
                 case OSCTypes::int32:       return OSCArgument (readInt32());
                 case OSCTypes::float32:     return OSCArgument (readFloat32());
                 case OSCTypes::string:      return OSCArgument (readString());
@@ -199,6 +212,11 @@ namespace
             auto types = readTypeTagString();
 
             OSCMessage msg (ap);
+
+#if JUCE_IP_AND_PORT_DETECTION
+            msg.setSenderIPAddress(senderIPAddress);
+            msg.setSenderPortNumber(senderPortNumber);
+#endif
 
             for (auto& type : types)
                 msg.addArgument (readArgument (type));
@@ -263,6 +281,11 @@ namespace
 
     private:
         MemoryInputStream input;
+
+#if JUCE_IP_AND_PORT_DETECTION
+        String senderIPAddress;
+        int senderPortNumber;
+#endif
 
         //==============================================================================
         void readPaddingZeros (size_t bytesRead)
@@ -418,10 +441,18 @@ struct OSCReceiver::Pimpl   : private Thread,
     };
 
     //==============================================================================
-    void handleBuffer (const char* data, size_t dataSize)
+#if JUCE_IP_AND_PORT_DETECTION
+    void handleBuffer(const char* data, size_t dataSize, const String& senderIPAddress, const int& senderPortNumber)
+#else
+    void handleBuffer(const char* data, size_t dataSize)
+#endif
     {
-        OSCInputStream inStream (data, dataSize);
 
+#if JUCE_IP_AND_PORT_DETECTION
+        OSCInputStream inStream(data, dataSize, senderIPAddress, senderPortNumber);
+#else
+        OSCInputStream inStream(data, dataSize);
+#endif
         try
         {
             auto content = inStream.readElementWithKnownSize (dataSize);
@@ -468,10 +499,21 @@ private:
             if (ready == 0)
                 continue;
 
-            auto bytesRead = (size_t) socket->read (oscBuffer.getData(), bufferSize, false);
-
+#if JUCE_IP_AND_PORT_DETECTION
+            String senderIPAddress = "";
+            int senderPortNumber = 0;
+            auto bytesRead = (size_t)socket->read(oscBuffer.getData(), bufferSize, false, senderIPAddress, senderPortNumber);
+#else
+            auto bytesRead = (size_t)socket->read(oscBuffer.getData(), bufferSize, false);
+#endif
             if (bytesRead >= 4)
-                handleBuffer (oscBuffer.getData(), bytesRead);
+            {
+#if JUCE_IP_AND_PORT_DETECTION
+                handleBuffer(oscBuffer.getData(), bytesRead, senderIPAddress, senderPortNumber);
+#else
+                handleBuffer(oscBuffer.getData(), bytesRead);
+#endif
+            }
         }
     }
 
