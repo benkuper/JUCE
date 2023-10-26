@@ -1660,6 +1660,19 @@ struct JavascriptEngine::RootObject final : public DynamicObject
             setMethod ("charCodeAt",    charCodeAt);
             setMethod ("fromCharCode",  fromCharCode);
             setMethod ("split",         split);
+            setMethod ("replace",       replace);
+            setMethod ("replaceCharacters",     replaceCharacters);
+            setMethod ("trim",          trim);
+            setMethod ("retainCharacters",      retainCharacters);
+            setMethod ("startsWith",    startsWith);
+            setMethod ("endsWith",      endsWith);
+            setMethod ("contains",      contains);
+            setMethod ("matches",       matches);
+            setMethod ("toLowerCase",   toLowerCase);
+            setMethod ("toUpperCase",   toUpperCase);
+            setMethod ("getFloat",      getFloatValue);
+            setMethod ("getInt",        getIntValue);
+            setMethod ("fromFloat",     fromFloatValue);
         }
 
         static Identifier getClassName()  { static const Identifier i ("String"); return i; }
@@ -1669,6 +1682,19 @@ struct JavascriptEngine::RootObject final : public DynamicObject
         static var indexOf (Args a)       { return a.thisObject.toString().indexOf (getString (a, 0)); }
         static var charCodeAt (Args a)    { return (int) a.thisObject.toString() [getInt (a, 0)]; }
         static var charAt (Args a)        { int p = getInt (a, 0); return a.thisObject.toString().substring (p, p + 1); }
+        static var replace(Args a) { return a.thisObject.toString().replace(getString(a, 0), getString(a, 1), getInt(a, 2)); }
+        static var replaceCharacters(Args a) { return a.thisObject.toString().replace(getString(a, 0), getString(a, 1)); }
+        static var trim(Args a) { return a.thisObject.toString().trim(); }
+        static var retainCharacters(Args a) { return a.thisObject.toString().retainCharacters(getString(a, 0)); }
+        static var contains(Args a) { return a.thisObject.toString().contains(getString(a, 0)); }
+        static var matches(Args a) { return a.thisObject.toString().matchesWildcard(getString(a, 0), getInt(a, 1)); }
+        static var startsWith(Args a) { return a.thisObject.toString().startsWith(getString(a, 0)); }
+        static var endsWith(Args a) { return a.thisObject.toString().endsWith(getString(a, 0)); }
+        static var toLowerCase(Args a) { return a.thisObject.toString().toLowerCase(); }
+        static var toUpperCase(Args a) { return a.thisObject.toString().toUpperCase(); }
+        static var getFloatValue(Args a) { return a.thisObject.toString().getFloatValue(); }
+        static var getIntValue(Args a) { return a.thisObject.toString().getIntValue(); }
+        static var fromFloatValue(Args a) { return a.numArguments < 1 ? "0" : String((double)a.arguments[0], a.numArguments >= 2 ? (int)a.arguments[1] : 0); }
 
         static var split (Args a)
         {
@@ -1711,7 +1737,8 @@ struct JavascriptEngine::RootObject final : public DynamicObject
             setMethod ("exp",       Math_exp);              setMethod ("pow",       Math_pow);
             setMethod ("sqr",       Math_sqr);              setMethod ("sqrt",      Math_sqrt);
             setMethod ("ceil",      Math_ceil);             setMethod ("floor",     Math_floor);
-            setMethod ("hypot",     Math_hypot);
+            setMethod ("hypot",     Math_hypot);            setMethod("lerp", Math_lerp);
+            setMethod("atan2",      Math_atan2);
 
             setProperty ("PI",      MathConstants<double>::pi);
             setProperty ("E",       MathConstants<double>::euler);
@@ -1757,6 +1784,8 @@ struct JavascriptEngine::RootObject final : public DynamicObject
         static var Math_asinh     (Args a) { return asinh (getDouble (a, 0)); }
         static var Math_acosh     (Args a) { return acosh (getDouble (a, 0)); }
         static var Math_atanh     (Args a) { return atanh (getDouble (a, 0)); }
+        static var Math_lerp(Args a) { return jmap<double>(getDouble(a, 0), getDouble(a, 1), getDouble(a, 2)); }
+        static var Math_atan2(Args a) { return atan2(getDouble(a, 0), getDouble(a, 1)); }
 
         static Identifier getClassName()   { static const Identifier i ("Math"); return i; }
         template <typename Type> static Type sign (Type n) noexcept  { return n > 0 ? (Type) 1 : (n < 0 ? (Type) -1 : 0); }
@@ -1773,7 +1802,10 @@ struct JavascriptEngine::RootObject final : public DynamicObject
     //==============================================================================
     struct IntegerClass final : public DynamicObject
     {
-        IntegerClass()                     { setMethod ("parseInt",  parseInt); }
+        IntegerClass()                     { 
+            setMethod ("parseInt",  parseInt); 
+            setMethod("toHexString", toHexString);
+        }
         static Identifier getClassName()   { static const Identifier i ("Integer"); return i; }
 
         static var parseInt (Args a)
@@ -1783,6 +1815,8 @@ struct JavascriptEngine::RootObject final : public DynamicObject
             return s[0] == '0' ? (s[1] == 'x' ? s.substring (2).getHexValue64() : getOctalValue (s))
                                : s.getLargeIntValue();
         }
+
+        static var toHexString(Args a) { return String::toHexString(getInt(a, 0)); }
     };
 
     //==============================================================================
