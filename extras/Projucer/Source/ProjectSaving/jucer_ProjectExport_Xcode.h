@@ -2866,7 +2866,12 @@ private:
         addFrameworkList (getExtraCustomFrameworksString(),
                           [this] (const String& framework) { return addCustomFramework (framework); });
 
-        String embeddedFrameworks = getEmbeddedFrameworksString() + "\n" + xcodeEmbeddedFrameworks.joinIntoString ("\n");
+        String embeddedFrameworks = getEmbeddedFrameworksString();
+        if(!xcodeEmbeddedFrameworks.isEmpty())
+        {
+            embeddedFrameworks += "\n" + xcodeEmbeddedFrameworks.joinIntoString ("\n");
+        }
+        
         addFrameworkList (embeddedFrameworks,
                           [this] (const String& framework)
                           {
