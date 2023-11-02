@@ -2700,6 +2700,8 @@ private:
         if (const auto codeSigningIdentity = getCodeSigningIdentity (config); codeSigningIdentity.isNotEmpty())
             result.set (iOS ? "\"CODE_SIGN_IDENTITY[sdk=iphoneos*]\"" : "CODE_SIGN_IDENTITY",
                         codeSigningIdentity.quoted());
+        else
+            result.set("CODE_SIGN_IDENTITY", "\"\""); //force empty string
     }
 
     StringPairArray getProjectSettings (const XcodeBuildConfiguration& config) const
