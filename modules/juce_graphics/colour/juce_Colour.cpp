@@ -547,11 +547,10 @@ Colour Colour::interpolatedWith (Colour other, float proportionOfOther) const no
         return other;
 
 #if JUCE_FLOAT_COLOURS
-    float proportionOfthis = 1.0f - proportionOfOther;
-    return Colour ((proportionOfthis * getFloatRed())   +  (proportionOfOther * other.getFloatRed()),
-                   (proportionOfthis * getFloatGreen()) +  (proportionOfOther * other.getFloatGreen()),
-                   (proportionOfthis * getFloatBlue())  +  (proportionOfOther * other.getFloatBlue()),
-                   (proportionOfthis * getFloatAlpha()) +  (proportionOfOther * other.getFloatAlpha()));
+    return Colour::fromFloatRGBA ((other.getFloatRed()   - getFloatRed())   *  proportionOfOther  +  getFloatRed(),
+                                  (other.getFloatGreen() - getFloatGreen()) *  proportionOfOther  +  getFloatGreen(),
+                                  (other.getFloatBlue()  - getFloatBlue())  *  proportionOfOther  +  getFloatBlue(),
+                                  (other.getFloatAlpha() - getFloatAlpha()) *  proportionOfOther  +  getFloatAlpha());
 #else
     PixelARGB c1 (getPixelARGB());
     PixelARGB c2 (other.getPixelARGB());
