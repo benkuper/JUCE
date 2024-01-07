@@ -30,17 +30,29 @@ struct ColourComponentSlider final : public Slider
 {
     ColourComponentSlider (const String& name)  : Slider (name)
     {
+#if JUCE_FLOAT_COLOURS
+        setRange (0.0, 255.0, 0.001);
+#else
         setRange (0.0, 255.0, 1.0);
+#endif
     }
 
     String getTextFromValue (double value) override
     {
+#if JUCE_FLOAT_COLOURS
+        return String(value, 3);
+#else
         return String::toHexString ((int) value).toUpperCase().paddedLeft ('0', 2);
+#endif
     }
 
     double getValueFromText (const String& text) override
     {
+#if JUCE_FLOAT_COLOURS
+        return (double) text.getDoubleValue();
+#else
         return (double) text.getHexValue32();
+#endif
     }
 };
 
@@ -614,10 +626,10 @@ void ColourSelector::update (NotificationType notification)
 {
     if (sliders[0] != nullptr)
     {
-        sliders[0]->setValue ((int) colour.getRed(),   notification);
-        sliders[1]->setValue ((int) colour.getGreen(), notification);
-        sliders[2]->setValue ((int) colour.getBlue(),  notification);
-        sliders[3]->setValue ((int) colour.getAlpha(), notification);
+        sliders[0]->setValue (colour.getFloatRed()   * 255.f, notification);
+        sliders[1]->setValue (colour.getFloatGreen() * 255.f, notification);
+        sliders[2]->setValue (colour.getFloatBlue()  * 255.f, notification);
+        sliders[3]->setValue (colour.getFloatAlpha() * 255.f, notification);
     }
 
     if (colourSpace != nullptr)
@@ -769,10 +781,10 @@ void ColourSelector::labelTextChanged(Label* label)
 void ColourSelector::changeColour()
 {
     if (sliders[0] != nullptr)
-        setCurrentColour (Colour ((uint8) sliders[0]->getValue(),
-                                  (uint8) sliders[1]->getValue(),
-                                  (uint8) sliders[2]->getValue(),
-                                  (uint8) sliders[3]->getValue()));
+        setCurrentColour (Colour::fromFloatRGBA (sliders[0]->getValue() / 255.f,
+                                                 sliders[1]->getValue() / 255.f,
+                                                 sliders[2]->getValue() / 255.f,
+                                                 sliders[3]->getValue() / 255.f));
 }
 
 //==============================================================================
