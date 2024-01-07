@@ -428,7 +428,7 @@ function(juce_add_binary_data target)
     set(newline_delimited_input)
 
     foreach(name IN LISTS JUCE_ARG_SOURCES)
-        _juce_make_absolute_and_check(name)
+        _juce_make_absolute(name)
         set(newline_delimited_input "${newline_delimited_input}${name}\n")
     endforeach()
 
@@ -1057,7 +1057,6 @@ function(juce_enable_vst3_manifest_step shared_code_target)
 
     # Use the helper tool to write out the moduleinfo.json
     add_custom_command(TARGET ${target_name} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E remove -f "${product}/Contents/moduleinfo.json"
         COMMAND ${CMAKE_COMMAND} -E make_directory "${product}/Contents/Resources"
         COMMAND juce_vst3_helper
             -create
@@ -1115,6 +1114,12 @@ function(_juce_set_plugin_target_properties shared_code_target kind)
         _juce_adhoc_sign(${target_name})
 
         get_target_property(vst3_auto_manifest ${shared_code_target} JUCE_VST3_AUTO_MANIFEST)
+
+        add_custom_command(TARGET ${target_name} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E echo "removing moduleinfo.json"
+            COMMAND ${CMAKE_COMMAND} -E remove -f
+                "${output_path}/Contents/moduleinfo.json"
+                "${output_path}/Contents/Resources/moduleinfo.json")
 
         if(vst3_auto_manifest)
             juce_enable_vst3_manifest_step(${shared_code_target})
@@ -2230,6 +2235,10 @@ function(juce_add_pip header)
                     juce_add_bundle_resources_directory("${target_name}" "${JUCE_SOURCE_DIR}/examples/Assets")
                 endif()
             endforeach()
+        endif()
+
+        if((CMAKE_CXX_COMPILER_ID STREQUAL "MSVC") OR (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"))
+            target_compile_options(${JUCE_PIP_NAME} PRIVATE /bigobj)
         endif()
     endif()
 endfunction()

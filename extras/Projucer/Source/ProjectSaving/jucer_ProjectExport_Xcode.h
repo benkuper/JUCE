@@ -46,7 +46,7 @@ if [ -e "$JUCE_INSTALL_PATH$JUCE_PRODUCT_NAME" ]; then :
   rm -rf "$JUCE_INSTALL_PATH$JUCE_PRODUCT_NAME"
 fi
 mkdir -p "$JUCE_INSTALL_PATH"
-cp -r "$JUCE_SOURCE_BUNDLE" "$JUCE_INSTALL_PATH"
+ln -sfhv "$JUCE_SOURCE_BUNDLE" "$JUCE_INSTALL_PATH"
 )";
 
 static constexpr const char* adhocCodeSignTemplate = R"(
@@ -2221,7 +2221,7 @@ private:
                 && project.getEnabledModules().isModuleEnabled ("juce_audio_plugin_client"))
             {
                 const auto path = rebaseFromProjectFolderToBuildTarget (getLV2HelperProgramSource());
-                addFile (FileOptions().withRelativePath ({ expandPath (path.toUnixStyle()), path.getRoot() })
+                addFile (FileOptions().withRelativePath ({ path.toUnixStyle(), path.getRoot() })
                                       .withSkipPCHEnabled (true)
                                       .withCompilationEnabled (true)
                                       .withInhibitWarningsEnabled (true)
@@ -2233,7 +2233,7 @@ private:
                 && project.getEnabledModules().isModuleEnabled ("juce_audio_plugin_client"))
             {
                 const auto path = rebaseFromProjectFolderToBuildTarget (getVST3HelperProgramSource());
-                addFile (FileOptions().withRelativePath ({ expandPath (path.toUnixStyle()), path.getRoot() })
+                addFile (FileOptions().withRelativePath ({ path.toUnixStyle(), path.getRoot() })
                                       .withSkipPCHEnabled (true)
                                       .withCompilationEnabled (true)
                                       .withInhibitWarningsEnabled (true)

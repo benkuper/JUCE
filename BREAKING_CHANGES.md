@@ -1,5 +1,148 @@
 # JUCE breaking changes
 
+# develop
+
+## Change
+
+OpenGLContext::getRenderingScale() has been changed to include the effects of
+AffineTransforms on all platforms.
+
+**Possible Issues**
+
+Applications that use OpenGLContext::getRenderingScale() and also have scaling
+transformations that affect the context component's size may render incorrectly.
+
+**Workaround**
+
+Adjust rendering code by dividing the reported scale with the user specified
+transformation scale, if necessary.
+
+**Rationale**
+
+The previous implementation resulted in inconsistent behaviour between Windows
+and the other platforms. The main intended use-case for getRenderingScale() is
+to help determine the number of physical pixels covered by the context
+component. Since plugin windows will often use AffineTransforms to set up the
+correct rendering scale, it makes sense to include these in the result of
+getRenderingScale().
+
+
+## Change
+
+Components that have setMouseClickGrabsKeyboardFocus() set to false will not
+accept or propagate keyboard focus to parent components due to a mouse click
+event. This is now true even if the mouse click event happens in a child
+component with setMouseClickGrabsKeyboardFocus (true) and
+setWantsKeyboardFocus (false).
+
+**Possible Issues**
+
+Components that rely on child components propagating keyboard focus from a
+mouse click, when those child components have setMouseClickGrabsKeyboardFocus()
+set to false, will no longer grab keyboard focus.
+
+**Workaround**
+
+Add a MouseListener to the component receiving the click and override the
+mouseDown() method in the listener. In the mouseDown() method call
+Component::grabKeyboardFocus() for the component that should be focused.
+
+**Rationale**
+
+The intent of setMouseClickGrabsKeyboardFocus (false) is to reject focus changes
+coming from mouse clicks even if the component is otherwise capable of receiving
+keyboard focus.
+
+The previous behaviour could result in surprising focus changes when a child
+component was clicked. This manifested in the focus seemingly disappearing when
+a PopupMenu item added to a component was clicked.
+
+
+## Change
+
+The NodeID argument to AudioProcessorGraph::addNode() has been changed to take
+a std::optional<NodeID>.
+
+**Possible Issues**
+
+The behavior of any code calling AudioProcessorGraph::addNode(), that explicitly
+passes a default constructed NodeID or a NodeID constructed with a value of 0,
+will change. Previously these values would have been treated as a null value
+resulting in the actual NodeID being automatically determined. These will now
+be treated as requests for an explicit value.
+
+**Workaround**
+
+Either remove the explicit NodeID argument and rely on the default argument or
+pass a std::nullopt instead.
+
+**Rationale**
+
+The previous version prevented users from specifying a NodeID of 0 and resulted
+in unexpected behavior.
+
+
+## Change
+
+The signature of DynamicObject::writeAsJSON() has been changed to accept a
+more extensible JSON::FormatOptions argument.
+
+**Possible Issues**
+
+Code that overrides or calls this function will fail to compile.
+
+**Workaround**
+
+Update the signatures of overriding functions. Use FormatOptions::getIndentLevel()
+and FormatOptions::getMaxDecimalPlaces() as necessary. To find whether the output
+should be multi-line, compare the result of FormatOptions::getSpacing() with
+JSON::Spacing::multiLine.
+
+Callers of the function can construct the new argument type using the old 
+arguments accordingly
+
+```
+JSON::FormatOptions{}.withIndentLevel (indentLevel)
+                     .withSpacing (allOnOneLine ? JSON::Spacing::singleLine 
+                                                : JSON::Spacing::multiLine)
+                     .withMaxDecimalPlaces (maximumDecimalPlaces);
+```
+
+**Rationale**
+
+The previous signature made it impossible to add new formatting options. Now,
+if we need to add further options in the future, these can be added to the
+FormatOptions type, which will not be a breaking change.
+
+
+# Version 7.0.9
+
+## Change
+
+CachedValue::operator==() will now emit floating point comparison warnings if 
+they are enabled for the project.
+
+**Possible Issues**
+
+Code using this function to compare floating point values may fail to compile
+due to the warnings.
+
+**Workaround**
+
+Rather than using CachedValue::operator==() for floating point types, use the
+exactlyEqual() or approximatelyEqual() functions in combination with
+CachedValue::get().
+
+**Rationale**
+
+The JUCE Framework now offers the free-standing exactlyEqual() and 
+approximatelyEqual() functions to clearly express the desired semantics when
+comparing floating point values. These functions are intended to eliminate
+the ambiguity in code-bases regarding these types. However, when such a value
+is wrapped in a CachedValue the corresponding warning was suppressed until now,
+making such efforts incomplete.
+
+
 # Version 7.0.8
 
 ## Change
