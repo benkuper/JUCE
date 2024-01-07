@@ -88,6 +88,13 @@ public:
             uint8 blue,
             float alpha) noexcept;
 
+    /** Creates a colour using float red, green and blue values. */
+    Colour (float red,
+            float green,
+            float blue,
+            float alpha,
+            float) noexcept;
+
     /** Creates a colour using floating point red, green, blue and alpha values.
         Numbers outside the range 0..1 will be clipped.
     */
@@ -165,17 +172,17 @@ public:
     /** Returns the red component of this colour.
         @returns a value between 0x00 and 0xff.
     */
-    uint8 getRed() const noexcept                       { return argb.getRed(); }
+    uint8 getRed() const noexcept;
 
     /** Returns the green component of this colour.
         @returns a value between 0x00 and 0xff.
     */
-    uint8 getGreen() const noexcept                     { return argb.getGreen(); }
+    uint8 getGreen() const noexcept;
 
     /** Returns the blue component of this colour.
         @returns a value between 0x00 and 0xff.
     */
-    uint8 getBlue() const noexcept                      { return argb.getBlue(); }
+    uint8 getBlue() const noexcept;
 
     /** Returns the red component of this colour as a floating point value.
         @returns a value between 0.0 and 1.0
@@ -212,7 +219,7 @@ public:
 
         Alpha of 0x00 is completely transparent, 0xff is completely opaque.
     */
-    uint8 getAlpha() const noexcept                     { return argb.getAlpha(); }
+    uint8 getAlpha() const noexcept;
 
     /** Returns the colour's alpha (opacity) as a floating point value.
 
@@ -414,7 +421,14 @@ public:
 
 private:
     //==============================================================================
+#if JUCE_FLOAT_COLOURS
+    float r = 0.f;
+    float g = 0.f;
+    float b = 0.f;
+    float a = 0.f;
+#else
     PixelARGB argb { 0, 0, 0, 0 };
+#endif
 };
 
 } // namespace juce
