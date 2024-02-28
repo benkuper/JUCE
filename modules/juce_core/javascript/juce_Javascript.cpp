@@ -1951,6 +1951,23 @@ const NamedValueSet& JavascriptEngine::getRootObjectProperties() const noexcept
     return root->getProperties();
 }
 
+const StringArray JavascriptEngine::getRootObjectFunctionNames() const noexcept
+{
+    const NamedValueSet props = root->getProperties();
+
+    StringArray result;
+
+    for (auto& p : props)
+    {
+        if (RootObject::isFunction(p.value))
+        {
+			result.add(p.name.toString());
+		}
+    }
+
+    return result;
+}
+
 JUCE_END_IGNORE_WARNINGS_MSVC
 
 } // namespace juce
