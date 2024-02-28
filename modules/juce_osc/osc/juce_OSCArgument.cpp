@@ -123,7 +123,7 @@ public:
         return block;
     }
 
-    void runTest()
+    void runTest() override
     {
         runTestInitialisation();
     }
