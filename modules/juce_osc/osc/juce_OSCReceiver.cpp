@@ -99,6 +99,12 @@ namespace
             return input.readFloatBigEndian();
         }
 
+        double readFloat64()
+		    {
+			      checkBytesAvailable(8, "OSC input stream exhausted while reading double");
+			      return input.readDoubleBigEndian();
+		    }
+
         String readString()
         {
             checkBytesAvailable (4, "OSC input stream exhausted while reading string");
@@ -194,6 +200,7 @@ namespace
                 case OSCTypes::F:			return OSCArgument(false);
                 case OSCTypes::int32:       return OSCArgument (readInt32());
                 case OSCTypes::float32:     return OSCArgument (readFloat32());
+                case OSCTypes::float64:     return OSCArgument (readFloat64());
                 case OSCTypes::string:      return OSCArgument (readString());
                 case OSCTypes::blob:        return OSCArgument (readBlob());
                 case OSCTypes::colour:      return OSCArgument (readColour());
