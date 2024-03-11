@@ -32,6 +32,7 @@ const OSCType OSCTypes::I = 'I';
 const OSCType OSCTypes::int32 = 'i';
 const OSCType OSCTypes::int64   = 'h';
 const OSCType OSCTypes::float32 = 'f';
+const OSCType OSCTypes::float64 = 'd';
 const OSCType OSCTypes::string  = 's';
 const OSCType OSCTypes::blob    = 'b';
 const OSCType OSCTypes::colour  = 'r';
