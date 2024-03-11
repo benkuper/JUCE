@@ -115,6 +115,7 @@ void OSCMessage::addBool(bool value)                { arguments.add(OSCArgument(
 void OSCMessage::addInt32(int32 value)              { arguments.add(OSCArgument(value)); }
 void OSCMessage::addInt64 (int64 value)             { arguments.add (OSCArgument (value)); }
 void OSCMessage::addFloat32 (float value)           { arguments.add (OSCArgument (value)); }
+void OSCMessage::addFloat64 (double value)          { arguments.add (OSCArgument (value)); }
 void OSCMessage::addString (const String& value)    { arguments.add (OSCArgument (value)); }
 void OSCMessage::addBlob (MemoryBlock blob)         { arguments.add (OSCArgument (std::move (blob))); }
 void OSCMessage::addColour (OSCColour colour)       { arguments.add (OSCArgument (colour)); }
