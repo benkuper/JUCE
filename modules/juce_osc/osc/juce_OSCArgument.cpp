@@ -84,11 +84,11 @@ float OSCArgument::getFloat32() const noexcept
 
 double OSCArgument::getFloat64() const noexcept
 {
-	  if (isFloat64())
-		    return doubleValue;
+    if (isFloat64())
+        return doubleValue;
 
-	  jassertfalse; // you must check the type of an argument before attempting to get its value!
-	  return 0.0f;
+    jassertfalse; // you must check the type of an argument before attempting to get its value!
+    return 0.0f;
 }
 
 const MemoryBlock& OSCArgument::getBlob() const noexcept
