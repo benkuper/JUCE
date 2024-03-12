@@ -31,7 +31,7 @@ OSCArgument::OSCArgument(bool v)                : type (v?OSCTypes::T:OSCTypes::
 OSCArgument::OSCArgument(int32 v)               : type(OSCTypes::int32),            intValue(v) {}
 OSCArgument::OSCArgument (int64 v)              : type (OSCTypes::int64),           int64Value (v) {}
 OSCArgument::OSCArgument (float v)              : type (OSCTypes::float32),         floatValue (v) {}
-OSCArgument::OSCArgument (double v)             : type (OSCtypes::float64),         doubleValue(v) {}
+OSCArgument::OSCArgument (double v)             : type (OSCTypes::float64),         doubleValue(v) {}
 OSCArgument::OSCArgument (const String& s)      : type (OSCTypes::string),          stringValue (s) {}
 OSCArgument::OSCArgument (MemoryBlock b)        : type (OSCTypes::blob),            blob (std::move (b)) {}
 OSCArgument::OSCArgument (OSCColour c)          : type (OSCTypes::colour),          intValue ((int32) c.toInt32()) {}
