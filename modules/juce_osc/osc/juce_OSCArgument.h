@@ -160,7 +160,8 @@ private:
     {
         int64 int64Value;
         double doubleValue;
-    }
+    };
+
     String stringValue;
     MemoryBlock blob;
 };
