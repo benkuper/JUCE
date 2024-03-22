@@ -87,10 +87,10 @@ namespace
             return input.readIntBigEndian();
         }
 
-        uint64 readUint64()
+        int64 readInt64()
         {
-            checkBytesAvailable (8, "OSC input stream exhausted while reading uint64");
-            return (uint64) input.readInt64BigEndian();
+            checkBytesAvailable (8, "OSC input stream exhausted while reading int64");
+            return (int64) input.readInt64BigEndian();
         }
 
         float readFloat32()
@@ -199,6 +199,7 @@ namespace
                 case OSCTypes::T:			return OSCArgument(true);
                 case OSCTypes::F:			return OSCArgument(false);
                 case OSCTypes::int32:       return OSCArgument (readInt32());
+	        case OSCTypes::int64:       return OSCArgument (readInt64());
                 case OSCTypes::float32:     return OSCArgument (readFloat32());
                 case OSCTypes::float64:     return OSCArgument (readFloat64());
                 case OSCTypes::string:      return OSCArgument (readString());
