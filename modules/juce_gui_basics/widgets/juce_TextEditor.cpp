@@ -2001,13 +2001,19 @@ bool TextEditor::moveCaretLeft (bool moveInWholeWordSteps, bool selecting)
 
 bool TextEditor::moveCaretRight (bool moveInWholeWordSteps, bool selecting)
 {
-    auto pos = getCaretPosition();
-
-    if (moveInWholeWordSteps)
-        pos = findWordBreakAfter (pos);
+    int pos;
+    if (!moveInWholeWordSteps && !selecting && !selection.isEmpty())
+    {
+        pos = selection.getEnd();
+    }
     else
-        ++pos;
-
+    {
+        pos = getCaretPosition();
+        if (moveInWholeWordSteps)
+            pos = findWordBreakAfter(pos);
+        else
+            ++pos;
+    }
     return moveCaretWithTransaction (pos, selecting);
 }
 
