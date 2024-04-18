@@ -34,7 +34,7 @@
 
 #include <juce_audio_processors/format_types/juce_LegacyAudioParameter.cpp>
 
-JUCE_BEGIN_IGNORE_WARNINGS_MSVC (4127 4512 4996)
+JUCE_BEGIN_IGNORE_WARNINGS_MSVC (4127 4512 4996 5272)
 JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wdeprecated-declarations",
                                      "-Wextra-semi",
                                      "-Wfloat-equal",
@@ -1759,18 +1759,16 @@ namespace AAXClasses
             if (! bypassPartOfRegularParams)
                 juceParameters.addNonOwning (bypassParameter);
 
-            int parameterIndex = 0;
-
-            for (auto* juceParam : juceParameters)
+            for (const auto [parameterIndex, juceParam] : enumerate (juceParameters))
             {
                 auto isBypassParameter = (juceParam == bypassParameter);
 
                 auto category = juceParam->getCategory();
                 auto paramID  = isBypassParameter ? String (cDefaultMasterBypassID)
-                                                  : juceParameters.getParamID (audioProcessor, parameterIndex);
+                                                  : juceParameters.getParamID (audioProcessor, (int) parameterIndex);
 
                 aaxParamIDs.add (paramID);
-                auto* aaxParamID = aaxParamIDs.getReference (parameterIndex++).toRawUTF8();
+                auto* aaxParamID = aaxParamIDs.getReference ((int) parameterIndex).toRawUTF8();
 
                 paramMap.set (AAXClasses::getAAXParamHash (aaxParamID), juceParam);
 
@@ -2699,7 +2697,9 @@ JUCE_END_IGNORE_WARNINGS_GCC_LIKE
 
 //==============================================================================
 #if _MSC_VER || JUCE_MINGW
+JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wmissing-prototypes")
 extern "C" BOOL WINAPI DllMain (HINSTANCE instance, DWORD reason, LPVOID) { if (reason == DLL_PROCESS_ATTACH) Process::setCurrentModuleInstanceHandle (instance); return true; }
+JUCE_END_IGNORE_WARNINGS_GCC_LIKE
 #endif
 
 #endif

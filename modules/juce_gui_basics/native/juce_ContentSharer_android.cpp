@@ -274,8 +274,18 @@ public:
                                AndroidIntent.setType,
                                javaString (getCommonMimeType (mimeTypes)).get());
 
-        constexpr int grantReadPermission = 1;
-        env->CallObjectMethod (intent, AndroidIntent.setFlags, grantReadPermission);
+        const auto permissions = [&]
+        {
+            constexpr int grantReadUriPermission   = 1;
+            constexpr int grantPrefixUriPermission = 128;
+
+            if (getAndroidSDKVersion() < 21)
+                return grantReadUriPermission;
+
+            return grantReadUriPermission | grantPrefixUriPermission;
+        };
+
+        env->CallObjectMethod (intent, AndroidIntent.setFlags, permissions);
 
         env->CallObjectMethod (intent,
                                AndroidIntent.putParcelableArrayListExtra,
@@ -336,8 +346,8 @@ public:
 
     static jobjectArray JNICALL contentSharerGetStreamTypes (JNIEnv*, jobject /*contentProvider*/, jobject uri, jstring mimeTypeFilter)
     {
-        return getInstance().getStreamTypes (LocalRef<jobject> (static_cast<jobject> (uri)),
-                                             LocalRef<jstring> (static_cast<jstring> (mimeTypeFilter)));
+        return getInstance().getStreamTypes (addLocalRefOwner (uri),
+                                             addLocalRefOwner (mimeTypeFilter));
     }
 
 private:
@@ -482,7 +492,8 @@ private:
         if (extension.isEmpty())
             return nullptr;
 
-        return juceStringArrayToJava (filterMimeTypes (detail::MimeTypeTable::getMimeTypesForFileExtension (extension), juceString (mimeTypeFilter.get())));
+        return juceStringArrayToJava (filterMimeTypes (detail::MimeTypeTable::getMimeTypesForFileExtension (extension),
+                                                       juceString (mimeTypeFilter.get()))).release();
     }
 
     std::unique_ptr<ActivityLauncher> doIntent (const LocalRef<jobject>& intent,

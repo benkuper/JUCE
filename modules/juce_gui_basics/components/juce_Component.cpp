@@ -2190,13 +2190,10 @@ void Component::internalMouseDown (MouseInputSource source,
 			}
 		}
 
-    if (! flags.dontFocusOnMouseClickFlag)
-    {
-        grabKeyboardFocusInternal (focusChangedByMouseClick, true, FocusChangeDirection::unknown);
+    grabKeyboardFocusInternal (focusChangedByMouseClick, true, FocusChangeDirection::unknown);
 
-			if (checker.shouldBailOut())
-				return;
-		}
+    if (checker.shouldBailOut())
+        return;
 
 		if (flags.repaintOnMouseActivityFlag)
 			repaint();
@@ -2633,6 +2630,9 @@ void Component::takeKeyboardFocus (FocusChangeType cause, FocusChangeDirection d
 
 void Component::grabKeyboardFocusInternal (FocusChangeType cause, bool canTryParent, FocusChangeDirection direction)
 {
+    if (flags.dontFocusOnMouseClickFlag && cause == FocusChangeType::focusChangedByMouseClick)
+        return;
+
     if (! isShowing())
         return;
 
@@ -2879,10 +2879,10 @@ void Component::grabKeyboardFocusInternal (FocusChangeType cause, bool canTryPar
 		return ModifierKeys::currentModifiers.isAnyMouseButtonDown();
 	}
 
-	Point<int> Component::getMouseXYRelative() const
-	{
-		return getLocalPoint(nullptr, Desktop::getMousePosition());
-	}
+Point<int> Component::getMouseXYRelative() const
+{
+    return getLocalPoint (nullptr, Desktop::getMousePositionFloat()).roundToInt();
+}
 
 	//==============================================================================
 	void Component::addKeyListener(KeyListener* newListener)
