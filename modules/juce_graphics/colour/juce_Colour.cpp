@@ -23,6 +23,9 @@
   ==============================================================================
 */
 
+#pragma warning (push)
+#pragma warning (disable: 4505)
+
 namespace juce
 {
 
@@ -929,3 +932,5 @@ static ColourTests colourTests;
 #endif
 
 } // namespace juce
+
+#pragma warning (pop)
