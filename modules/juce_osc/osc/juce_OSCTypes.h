@@ -49,6 +49,7 @@ public:
     static const OSCType T;
     static const OSCType F;
     static const OSCType I;
+    static const OSCType N;
     static const OSCType int32;
     static const OSCType int64;
     static const OSCType float32;
@@ -62,6 +63,7 @@ public:
         return type == OSCTypes::T
             || type == OSCTypes::F
             || type == OSCTypes::I
+            || type == OSCTypes::N
             || type == OSCTypes::int32
             || type == OSCTypes::int64
             || type == OSCTypes::float32

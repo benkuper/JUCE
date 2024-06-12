@@ -196,10 +196,11 @@ namespace
             switch (type)
             {
                 case OSCTypes::I:			return OSCArgument();
+                case OSCTypes::N:           return OSCArgument(OSCTypes::N);
                 case OSCTypes::T:			return OSCArgument(true);
                 case OSCTypes::F:			return OSCArgument(false);
                 case OSCTypes::int32:       return OSCArgument (readInt32());
-	        case OSCTypes::int64:       return OSCArgument (readInt64());
+	            case OSCTypes::int64:       return OSCArgument (readInt64());
                 case OSCTypes::float32:     return OSCArgument (readFloat32());
                 case OSCTypes::float64:     return OSCArgument (readFloat64());
                 case OSCTypes::string:      return OSCArgument (readString());

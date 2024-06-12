@@ -35,6 +35,7 @@ OSCArgument::OSCArgument (double v)             : type (OSCTypes::float64),     
 OSCArgument::OSCArgument (const String& s)      : type (OSCTypes::string),          stringValue (s) {}
 OSCArgument::OSCArgument (MemoryBlock b)        : type (OSCTypes::blob),            blob (std::move (b)) {}
 OSCArgument::OSCArgument (OSCColour c)          : type (OSCTypes::colour),          intValue ((int32) c.toInt32()) {}
+OSCArgument::OSCArgument(char type)             : type(type) {}
 
 //==============================================================================
 bool OSCArgument::getBool() const noexcept
