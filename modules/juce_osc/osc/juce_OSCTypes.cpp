@@ -29,6 +29,7 @@ namespace juce
 const OSCType OSCTypes::T = 'T';
 const OSCType OSCTypes::F = 'F';
 const OSCType OSCTypes::I = 'I';
+const OSCType OSCTypes::N = 'N';
 const OSCType OSCTypes::int32 = 'i';
 const OSCType OSCTypes::int64   = 'h';
 const OSCType OSCTypes::float32 = 'f';

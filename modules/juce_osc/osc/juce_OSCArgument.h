@@ -72,12 +72,20 @@ public:
     /** Constructs an OSCArgument with type colour and a given colour value */
     OSCArgument (OSCColour colour);
 
+    /** Constructs an OSCArgument with specified type directly */
+    OSCArgument(char type);
+
+
     /** Returns the type of the OSCArgument as an OSCType.
         OSCType is a char type, and its value will be the OSC type tag of the type.
     */
     OSCType getType() const noexcept        { return type; }
 
-    /** Returns whether the type of the OSCArgument is T or F. */
+    
+    /** Return wheter the type of the OSCArgument is NIL */
+    bool isNil() const noexcept { return type == OSCTypes::N; }
+
+    /** Returns whether the type of the OSCArgument is Impulse. */
     bool isImpulse() const noexcept { return type == OSCTypes::I; }
    
     /** Returns whether the type of the OSCArgument is T or F. */
