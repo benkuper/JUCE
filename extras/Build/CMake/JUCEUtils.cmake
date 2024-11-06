@@ -683,6 +683,10 @@ function(_juce_generate_icon source_target dest_target)
 endfunction()
 
 function(_juce_add_xcode_entitlements source_target dest_target)
+    if(NOT APPLE)
+        return()
+    endif()
+
     get_target_property(juce_kind_string ${dest_target} JUCE_TARGET_KIND_STRING)
     get_target_property(input_info_file ${source_target} JUCE_INFO_FILE)
 
@@ -1210,7 +1214,7 @@ function(_juce_set_plugin_target_properties shared_code_target kind)
             else()
                 message(FATAL_ERROR "Unsupported target architecture for VST3: ${JUCE_TARGET_ARCHITECTURE}")
             endif()
-            
+
             _juce_create_windows_package(${shared_code_target} ${target_name} vst3 "" "${windows_arch}-win")
         endif()
 
@@ -1289,7 +1293,7 @@ function(_juce_set_plugin_target_properties shared_code_target kind)
             else()
                 message(FATAL_ERROR "Unsupported target architecture for AAX: ${JUCE_TARGET_ARCHITECTURE}")
             endif()
-            
+
             _juce_create_windows_package(${shared_code_target} ${target_name} aaxplugin "${default_icon}" "${windows_arch}")
         endif()
 

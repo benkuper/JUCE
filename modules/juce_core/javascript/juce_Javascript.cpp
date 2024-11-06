@@ -32,16 +32,9 @@
   ==============================================================================
 */
 
-JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wdeprecated-copy-with-dtor",
-                                     "-Wunused-but-set-variable",
-                                     "-Wdeprecated",
-                                     "-Wunused-function",
-                                     "-Wpedantic")
-JUCE_BEGIN_IGNORE_WARNINGS_MSVC (4163 6011 6246 6255 6262 6297 6308 6323 6340 6385 6386 28182)
+#define choc juce::detail::choc
 #include <juce_core/javascript/choc/javascript/choc_javascript_QuickJS.h>
-#include <juce_core/javascript/choc/javascript/choc_javascript.h>
-    JUCE_END_IGNORE_WARNINGS_MSVC
-    JUCE_END_IGNORE_WARNINGS_GCC_LIKE
+#undef choc
 
     namespace juce
 {
@@ -55,8 +48,8 @@ JUCE_BEGIN_IGNORE_WARNINGS_MSVC (4163 6011 6246 6255 6262 6297 6308 6323 6340 63
     template <typename T>
     static int64_t toJuceInt64(const T& convertible) { return (int64)(int64_t)convertible; }
 
-    //==============================================================================
-    namespace qjs = choc::javascript::quickjs;
+//==============================================================================
+namespace qjs = detail::choc::javascript::quickjs;
 
     using VarOrError = std::variant<var, String>;
 
@@ -394,19 +387,39 @@ JUCE_BEGIN_IGNORE_WARNINGS_MSVC (4163 6011 6246 6255 6262 6297 6308 6323 6340 63
                 obj = std::move(proto);
             }
 
-            DynamicObject::Ptr result = new DynamicObject;
+static VarOrError quickJSToJuce (const qjs::QuickJSContext::ValuePtr& ptr)
+{
+    try
+    {
+        return tryQuickJSToJuce (ptr);
+    }
+    catch (const detail::choc::javascript::Error& error)
+    {
+        return String (error.what());
+    }
+}
 
-            for (auto& propName : propNames)
-                result->setProperty(String(propName), tryQuickJSToJuce(ptr[propName.c_str()], &ptr.value));
-
-            return result.get();
-        }
-
-        ptr.throwIfError();
-        return {};
+//==============================================================================
+// Any type that references the QuickJS types inside the anonymous namespace added by us requires
+// this with GCC. Suppressing this warning is fine, since these classes are only visible and used
+// in a single translation unit.
+JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wsubobject-linkage")
+class detail::QuickJSWrapper
+{
+public:
+    qjs::JSContext* getQuickJSContext() const
+    {
+        return impl->context;
     }
 
-    static VarOrError quickJSToJuce(const qjs::QuickJSContext::ValuePtr& ptr)
+    qjs::JSRuntime* getQuickJSRuntime() const
+    {
+        return impl->runtime;
+    }
+
+    /*  Returning a value > 0 will interrupt the QuickJS engine.
+    */
+    void setInterruptHandler (std::function<int()> interruptHandlerIn)
     {
         try
         {
@@ -441,13 +454,10 @@ JUCE_BEGIN_IGNORE_WARNINGS_MSVC (4163 6011 6246 6255 6262 6297 6308 6323 6340 63
             return context;
         }
 
-        /*  Returning a value > 0 will interrupt the QuickJS engine.
-        */
-        void setInterruptHandler(std::function<int()> interruptHandlerIn)
-        {
-            interruptHandler = std::move(interruptHandlerIn);
-            qjs::JS_SetInterruptHandler(getQuickJSRuntime(), handleInterrupt, (void*)this);
-        }
+    std::unique_ptr<qjs::QuickJSContext> impl = std::make_unique<qjs::QuickJSContext>();
+    std::function<int()> interruptHandler;
+};
+JUCE_END_IGNORE_WARNINGS_GCC_LIKE
 
     private:
         static int handleInterrupt(qjs::JSRuntime*, void* opaque)
@@ -502,10 +512,11 @@ JUCE_BEGIN_IGNORE_WARNINGS_MSVC (4163 6011 6246 6255 6262 6297 6308 6323 6340 63
     }
 
     //==============================================================================
-    /*  Attached as an opaque pointer to the corresponding JS object. Its lifetime is managed by the
-        QuickJS engine, which calls the finalise function when the corresponding JSValue is deleted.
-    */
-    struct DynamicObjectWrapper
+    static qjs::JSValue callDispatcher (qjs::JSContext* ctx,
+                                        qjs::JSValueConst thisValue,
+                                        int numArgs,
+                                        qjs::JSValueConst* args,
+                                        int ordinal)
     {
         DynamicObjectWrapper(detail::QuickJSWrapper& engineIn, DynamicObject::Ptr objectIn)
             : engine(engineIn), object(objectIn)
