@@ -877,6 +877,8 @@ function(_juce_create_windows_package source_target dest_target extension defaul
         set(desktop_ini "${output_folder}/desktop.ini")
         set(plugin_ico "${output_folder}/Plugin.ico")
 
+        target_sources(${dest_target} PRIVATE "${desktop_ini}" "${icon_file}")
+
         file(GENERATE OUTPUT "${desktop_ini}"
             CONTENT
             "[.ShellClassInfo]\nIconResource=Plugin.ico,0\nIconFile=Plugin.ico\nIconIndex=0\n")
@@ -884,7 +886,6 @@ function(_juce_create_windows_package source_target dest_target extension defaul
             COMMAND "${CMAKE_COMMAND}" -E copy "${icon_file}" "${plugin_ico}"
             COMMAND attrib +s "${desktop_ini}"
             COMMAND attrib +s "${output_folder}"
-            DEPENDS "${icon_file}" "${desktop_ini}"
             VERBATIM)
     endif()
 endfunction()
@@ -1051,10 +1052,6 @@ function(_juce_add_vst3_manifest_helper_target)
         target_compile_options(juce_vst3_helper PRIVATE -fobjc-arc)
     endif()
 
-    if(MSYS OR MINGW)
-        target_link_options(juce_vst3_helper PRIVATE -municode)
-    endif()
-
     set_target_properties(juce_vst3_helper PROPERTIES BUILD_WITH_INSTALL_RPATH ON)
     set(THREADS_PREFER_PTHREAD_FLAG ON)
     find_package(Threads REQUIRED)
@@ -1081,11 +1078,6 @@ function(juce_enable_vst3_manifest_step shared_code_target)
         message(FATAL_ERROR "VST3 manifest generation would run after plugin copy step, so it has been disabled. "
             "If you're manually calling juce_enable_vst3_manifest_step, then you probably need to call "
             "juce_enable_copy_plugin_step too.")
-    endif()
-
-    if((MSYS OR MINGW) AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
-        message(WARNING "VST3 manifest generation is disabled for ${shared_code_target} because the compiler is not supported.")
-        return()
     endif()
 
     if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND NOT JUCE_WINDOWS_HELPERS_CAN_RUN)
@@ -1318,9 +1310,9 @@ function(_juce_set_plugin_target_properties shared_code_target kind)
             _juce_set_copy_properties(${shared_code_target} ${target_name} "${output_path}" JUCE_UNITY_COPY_DIR)
         else()
             # On windows and linux, the gui script needs to be copied next to the unity output
+            target_sources(${target_name} PRIVATE "${script_file}")
             add_custom_command(TARGET ${target_name} POST_BUILD
                 COMMAND "${CMAKE_COMMAND}" -E copy "${script_file}" "${products_folder}"
-                DEPENDS "${script_file}"
                 VERBATIM)
 
             _juce_set_copy_properties(${shared_code_target}

@@ -104,7 +104,7 @@ public:
     //==============================================================================
     static CGImageRef getCachedImageRef (const Image& juceImage, CGColorSpaceRef colourSpace)
     {
-        auto cgim = dynamic_cast<CoreGraphicsPixelData*> (juceImage.getPixelData());
+        auto cgim = dynamic_cast<CoreGraphicsPixelData*> (juceImage.getPixelData().get());
 
         if (cgim != nullptr && cgim->cachedImageRef != nullptr)
             return CGImageRetain (cgim->cachedImageRef.get());
@@ -123,7 +123,7 @@ public:
 
         const auto provider = [&]
         {
-            if (auto* cgim = dynamic_cast<CoreGraphicsPixelData*> (juceImage.getPixelData()))
+            if (auto* cgim = dynamic_cast<CoreGraphicsPixelData*> (juceImage.getPixelData().get()))
             {
                 return detail::DataProviderPtr { CGDataProviderCreateWithData (new ImageDataContainer::Ptr (cgim->imageData),
                                                                                srcData.data,
@@ -867,6 +867,10 @@ void CoreGraphicsContext::drawGlyphs (Span<const uint16_t> glyphs,
         Path p;
         auto& f = state->font;
         f.getTypefacePtr()->getOutlineForGlyph (f.getMetricsKind(), glyph, p);
+
+        if (p.isEmpty())
+            continue;
+
         const auto scale = f.getHeight();
         fillPath (p, AffineTransform::scale (scale * f.getHorizontalScale(), scale).translated (positions[index]).followedBy (transform));
     }
@@ -1029,7 +1033,7 @@ Image juce_loadWithCoreImage (InputStream& input)
                                                        (int) CGImageGetHeight (loadedImage),
                                                        hasAlphaChan));
 
-                auto cgImage = dynamic_cast<CoreGraphicsPixelData*> (image.getPixelData());
+                auto cgImage = dynamic_cast<CoreGraphicsPixelData*> (image.getPixelData().get());
                 jassert (cgImage != nullptr); // if USE_COREGRAPHICS_RENDERING is set, the CoreGraphicsPixelData class should have been used.
 
                 CGContextDrawImage (cgImage->context.get(), convertToCGRect (image.getBounds()), loadedImage);
@@ -1066,7 +1070,7 @@ CGImageRef juce_createCoreGraphicsImage (const Image& juceImage, CGColorSpaceRef
 
 CGContextRef juce_getImageContext (const Image& image)
 {
-    if (auto cgi = dynamic_cast<CoreGraphicsPixelData*> (image.getPixelData()))
+    if (auto cgi = dynamic_cast<CoreGraphicsPixelData*> (image.getPixelData().get()))
         return cgi->context.get();
 
     jassertfalse;

@@ -35,6 +35,8 @@
 namespace juce
 {
 
+constexpr auto enableDirectXDebugLayer = false;
+
 struct DxgiAdapter : public ReferenceCountedObject
 {
     using Ptr = ReferenceCountedObjectPtr<DxgiAdapter>;
@@ -60,7 +62,8 @@ struct DxgiAdapter : public ReferenceCountedObject
 
         // This flag adds support for surfaces with a different color channel ordering
         // than the API default. It is required for compatibility with Direct2D.
-        const auto creationFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+        const auto creationFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT
+                                 | (enableDirectXDebugLayer ? D3D11_CREATE_DEVICE_DEBUG : 0);
 
         if (const auto hr = D3D11CreateDevice (result->dxgiAdapter,
                                                D3D_DRIVER_TYPE_UNKNOWN,
@@ -266,7 +269,7 @@ private:
     ComSmartPtr<ID2D1Factory2> d2dSharedFactory = [&]
     {
         D2D1_FACTORY_OPTIONS options;
-        options.debugLevel = D2D1_DEBUG_LEVEL_NONE;
+        options.debugLevel = enableDirectXDebugLayer ? D2D1_DEBUG_LEVEL_INFORMATION : D2D1_DEBUG_LEVEL_NONE;
         JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wlanguage-extension-token")
         ComSmartPtr<ID2D1Factory2> result;
         auto hr = D2D1CreateFactory (D2D1_FACTORY_TYPE_MULTI_THREADED,
@@ -329,6 +332,16 @@ struct D2DUtilities
     static Rectangle<int> rectFromSize (D2D1_SIZE_U s)
     {
         return { (int) s.width, (int) s.height };
+    }
+
+    static ComSmartPtr<ID2D1Device1> getDeviceForContext (ComSmartPtr<ID2D1DeviceContext1> context)
+    {
+        if (context == nullptr)
+            return {};
+
+        ComSmartPtr<ID2D1Device> device;
+        context->GetDevice (device.resetAndGetPointerAddress());
+        return device.getInterface<ID2D1Device1>();
     }
 };
 
