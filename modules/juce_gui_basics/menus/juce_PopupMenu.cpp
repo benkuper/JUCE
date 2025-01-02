@@ -84,14 +84,11 @@ struct HeaderItemComponent final : public PopupMenu::CustomComponent
 
     void getIdealSize (int& idealWidth, int& idealHeight) override
     {
-        getLookAndFeel().getIdealPopupMenuItemSizeWithOptions (getName(),
-                                                               false,
-                                                               -1,
-                                                               idealWidth,
-                                                               idealHeight,
-                                                               options);
-        idealHeight += idealHeight / 2;
-        idealWidth += idealWidth / 4;
+        getLookAndFeel().getIdealPopupMenuSectionHeaderSizeWithOptions (getName(),
+                                                                        -1,
+                                                                        idealWidth,
+                                                                        idealHeight,
+                                                                        options);
     }
 
     std::unique_ptr<AccessibilityHandler> createAccessibilityHandler() override

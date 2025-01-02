@@ -901,6 +901,22 @@ void LookAndFeel_V2::getIdealPopupMenuItemSizeWithOptions (const String& text,
                                idealHeight);
 }
 
+void LookAndFeel_V2::getIdealPopupMenuSectionHeaderSizeWithOptions (const String& text,
+                                                                    int standardMenuItemHeight,
+                                                                    int& idealWidth,
+                                                                    int& idealHeight,
+                                                                    const PopupMenu::Options& options)
+{
+    getIdealPopupMenuItemSizeWithOptions (text,
+                                          false,
+                                          standardMenuItemHeight,
+                                          idealWidth,
+                                          idealHeight,
+                                          options);
+    idealHeight += idealHeight / 2;
+    idealWidth += idealWidth / 4;
+}
+
 void LookAndFeel_V2::drawPopupMenuBackground (Graphics& g, int width, int height)
 {
     auto background = findColour (PopupMenu::backgroundColourId);

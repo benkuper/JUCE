@@ -5,20 +5,67 @@
 
 ## Change
 
-The behavior of AudioTransportSource::hasStreamFinished has been updated to correctly return true when the stream has finished.
+HeaderItemComponent::getIdealSize no longer applies modifiers to the result
+directly. Instead, these changes have been moved to the respective LookAndFeel
+methods, enabling better customization.
 
 **Possible Issues**
 
-This change may affect any code that relied on the previous behavior, where the method never returned true.
+Code that overrides LookAndFeel::getIdealPopupMenuItemSize and relied on the
+previous modifiers applied in HeaderItemComponent::getIdealSize may now behave
+differently.
 
 **Workaround**
 
-Review and update any code that depends on hasStreamFinished or any registered ChangeListeners that respond to stream completion.
+Review any overrides of LookAndFeel::getIdealPopupMenuItemSize and apply the
+necessary adjustments to account for any missing modifiers or changes in
+behavior.
 
 **Rationale**
 
-The previous behavior, where hasStreamFinished never returned true, was incorrect.
-This update ensures the method works as intended.
+The previous approach did not allow users to customize the applied modifiers
+through the LookAndFeel class. Moving this logic to LookAndFeel methods ensures
+consistent and flexible customization.
+
+
+## Change
+
+The behavior of AudioTransportSource::hasStreamFinished has been updated to
+correctly return true when the stream has finished.
+
+**Possible Issues**
+
+This change may affect any code that relied on the previous behavior, where the
+method never returned true.
+
+**Workaround**
+
+Review and update any code that depends on hasStreamFinished or any registered
+ChangeListeners that respond to stream completion.
+
+**Rationale**
+
+The previous behavior, where hasStreamFinished never returned true, was
+incorrect. This update ensures the method works as intended.
+
+
+## Change
+
+AudioProcessor::TrackProperties now uses std::optional.
+
+**Possible Issues**
+
+Code that accessed TrackProperties properties directly will no longer compile.
+
+**Workaround**
+
+Use std::optional::has_value() to check if a property is set. Or Access the
+property value safely using std::optional::value() or operator*.
+
+**Rationale**
+
+Previously, it was not possible to distinguish whether a TrackProperty was
+explicitly set or if the default value was being used.
 
 
 ## Change
@@ -27,11 +74,13 @@ Support for Arm32 in Projucer has been removed for Windows targets.
 
 **Possible Issues**
 
-Projucer projects targeting Arm32 on Windows will no longer be able to select that option.
+Projucer projects targeting Arm32 on Windows will no longer be able to select
+that option.
 
 **Workaround**
 
-Select Arm64 or Arm64EC instead of Arm32, and port any 32-bit specific code to 64-bit.
+Select Arm64 or Arm64EC instead of Arm32, and port any 32-bit specific code to
+64-bit.
 
 **Rationale**
 
@@ -44,7 +93,8 @@ The Javascript implementation has been moved into a independent juce module.
 
 **Possible Issues**
 
-Any existing use of JavascriptEngine, JSCursor, or JSObject will fail to compile.
+Any existing use of JavascriptEngine, JSCursor, or JSObject will fail to
+compile.
 
 **Workaround**
 
