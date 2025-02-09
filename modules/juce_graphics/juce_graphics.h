@@ -99,6 +99,15 @@
  #define USE_COREGRAPHICS_RENDERING 1
 #endif
 
+/** Config: JUCE_FLOAT_COLOURS
+
+    Setting this flag will make the Colour class use float values internaly instead of int allowing
+    better precision on colors
+*/
+#ifndef JUCE_FLOAT_COLOURS
+ #define JUCE_FLOAT_COLOURS 0
+#endif
+
 //==============================================================================
 namespace juce
 {
