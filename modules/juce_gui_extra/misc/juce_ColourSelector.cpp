@@ -642,10 +642,10 @@ void ColourSelector::resized()
 void ColourSelector::changeColour()
 {
     if (sliders[0] != nullptr)
-        setCurrentColour (Colour::fromFloatRGBA (sliders[0]->getValue() / 255.f,
-                                                 sliders[1]->getValue() / 255.f,
-                                                 sliders[2]->getValue() / 255.f,
-                                                 sliders[3]->getValue() / 255.f));
+        setCurrentColour (Colour::fromFloatRGBA ((float)sliders[0]->getValue() / 255.f,
+                                                 (float)sliders[1]->getValue() / 255.f,
+                                                 (float)sliders[2]->getValue() / 255.f,
+                                                 (float)sliders[3]->getValue() / 255.f));
 }
 
 //==============================================================================
