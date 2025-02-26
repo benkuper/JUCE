@@ -1,24 +1,33 @@
 /*
   ==============================================================================
 
-   This file is part of the JUCE library.
-   Copyright (c) 2022 - Raw Material Software Limited
+   This file is part of the JUCE framework.
+   Copyright (c) Raw Material Software Limited
 
-   JUCE is an open source library subject to commercial or open-source
+   JUCE is an open source framework subject to commercial or open source
    licensing.
 
-   By using JUCE, you agree to the terms of both the JUCE 7 End-User License
-   Agreement and JUCE Privacy Policy.
+   By downloading, installing, or using the JUCE framework, or combining the
+   JUCE framework with any other source code, object code, content or any other
+   copyrightable work, you agree to the terms of the JUCE End User Licence
+   Agreement, and all incorporated terms including the JUCE Privacy Policy and
+   the JUCE Website Terms of Service, as applicable, which will bind you. If you
+   do not agree to the terms of these agreements, we will not license the JUCE
+   framework to you, and you must discontinue the installation or download
+   process and cease use of the JUCE framework.
 
-   End User License Agreement: www.juce.com/juce-7-licence
-   Privacy Policy: www.juce.com/juce-privacy-policy
+   JUCE End User Licence Agreement: https://juce.com/legal/juce-8-licence/
+   JUCE Privacy Policy: https://juce.com/juce-privacy-policy
+   JUCE Website Terms of Service: https://juce.com/juce-website-terms-of-service/
 
-   Or: You may also use this code under the terms of the GPL v3 (see
-   www.gnu.org/licenses).
+   Or:
 
-   JUCE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES, WHETHER
-   EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR PURPOSE, ARE
-   DISCLAIMED.
+   You may also use this code under the terms of the AGPLv3:
+   https://www.gnu.org/licenses/agpl-3.0.en.html
+
+   THE JUCE FRAMEWORK IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL
+   WARRANTIES, WHETHER EXPRESSED OR IMPLIED, INCLUDING WARRANTY OF
+   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, ARE DISCLAIMED.
 
   ==============================================================================
 */
@@ -27,12 +36,8 @@ namespace juce
 {
 
 //==============================================================================
-static int numAlwaysOnTopPeers = 0;
-bool detail::WindowingHelpers::areThereAnyAlwaysOnTopWindows()  { return numAlwaysOnTopPeers > 0; }
-
-//==============================================================================
-class LinuxComponentPeer  : public ComponentPeer,
-                            private XWindowSystemUtilities::XSettings::Listener
+class LinuxComponentPeer final : public ComponentPeer,
+                                 private XWindowSystemUtilities::XSettings::Listener
 {
 public:
     LinuxComponentPeer (Component& comp, int windowStyleFlags, ::Window parentToAddTo)
@@ -48,7 +53,7 @@ public:
             return;
 
         if (isAlwaysOnTop)
-            ++numAlwaysOnTopPeers;
+            ++WindowUtilsInternal::numAlwaysOnTopPeers;
 
         repainter = std::make_unique<LinuxRepaintManager> (*this);
 
@@ -79,7 +84,7 @@ public:
             xSettings->removeListener (this);
 
         if (isAlwaysOnTop)
-            --numAlwaysOnTopPeers;
+            --WindowUtilsInternal::numAlwaysOnTopPeers;
     }
 
     ::Window getWindowHandle() const noexcept
@@ -105,7 +110,13 @@ public:
 
         WeakReference<Component> deletionChecker (&component);
 
-        XWindowSystem::getInstance()->setBounds (windowH, physicalBounds, isNowFullScreen);
+        // If we are in a ConfigureNotify handler then forceSetBounds is being called as a
+        // consequence of X11 telling us what the window size is. There's no need to report this
+        // size back again to X11. By this we are avoiding a pitfall, when we get many subsequent
+        // ConfigureNotify events, many of which has stale size information. By not calling
+        // XWindowSystem::setBounds we are not actualising these old, incorrect sizes.
+        if (! inConfigureNotifyHandler)
+            XWindowSystem::getInstance()->setBounds (windowH, physicalBounds, isNowFullScreen);
 
         fullScreen = isNowFullScreen;
 
@@ -197,6 +208,11 @@ public:
     bool isMinimised() const override
     {
         return XWindowSystem::getInstance()->isMinimised (windowH);
+    }
+
+    bool isShowing() const override
+    {
+        return ! XWindowSystem::getInstance()->isMinimised (windowH);
     }
 
     void setFullScreen (bool shouldBeFullScreen) override
@@ -403,9 +419,15 @@ public:
 
     void clearWindowAssociation() { association = {}; }
 
+    void startHostManagedResize (Point<int>, ResizableBorderComponent::Zone zone) override
+    {
+        XWindowSystem::getInstance()->startHostManagedResize (windowH, zone);
+    }
+
     //==============================================================================
     static bool isActiveApplication;
     bool focused = false;
+    bool inConfigureNotifyHandler = false;
 
 private:
     //==============================================================================
@@ -468,8 +490,7 @@ private:
                         // This issue only occurs right after peer creation, when the image is
                         // null. Updating when only the width or height is changed would lead to
                         // incorrect behaviour.
-                        peer.forceSetBounds (detail::ScalingHelpers::scaledScreenPosToUnscaled (peer.component,
-                                                                                        peer.component.getBoundsInParent()),
+                        peer.forceSetBounds (detail::ScalingHelpers::scaledScreenPosToUnscaled (peer.component, peer.component.getBoundsInParent()),
                                              peer.isFullScreen());
                     }
                 }
@@ -506,26 +527,6 @@ private:
         bool useARGBImagesForRendering = XWindowSystem::getInstance()->canUseARGBImages();
 
         JUCE_DECLARE_NON_COPYABLE (LinuxRepaintManager)
-    };
-
-    class LinuxVBlankManager  : public Timer
-    {
-    public:
-        explicit LinuxVBlankManager (std::function<void()> cb)  : callback (std::move (cb))
-        {
-            jassert (callback);
-        }
-
-        ~LinuxVBlankManager() override           { stopTimer(); }
-
-        //==============================================================================
-        void timerCallback() override            { callback(); }
-
-    private:
-        std::function<void()> callback;
-
-        JUCE_DECLARE_NON_COPYABLE (LinuxVBlankManager)
-        JUCE_DECLARE_NON_MOVEABLE (LinuxVBlankManager)
     };
 
     //==============================================================================
@@ -572,7 +573,8 @@ private:
 
     void onVBlank()
     {
-        vBlankListeners.call ([] (auto& l) { l.onVBlank(); });
+        const auto timestampSec = Time::getMillisecondCounterHiRes() / 1000.0;
+        callVBlankListeners (timestampSec);
 
         if (repainter != nullptr)
             repainter->dispatchDeferredRepaints();
@@ -594,7 +596,7 @@ private:
 
     //==============================================================================
     std::unique_ptr<LinuxRepaintManager> repainter;
-    LinuxVBlankManager vBlankManager { [this]() { onVBlank(); } };
+    TimedCallback vBlankManager { [this]() { onVBlank(); } };
 
     ::Window windowH = {}, parentWindow = {};
     Rectangle<int> bounds;

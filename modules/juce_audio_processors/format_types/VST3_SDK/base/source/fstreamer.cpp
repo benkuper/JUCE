@@ -9,7 +9,7 @@
 //
 //-----------------------------------------------------------------------------
 // LICENSE
-// (c) 2022, Steinberg Media Technologies GmbH, All Rights Reserved
+// (c) 2024, Steinberg Media Technologies GmbH, All Rights Reserved
 //-----------------------------------------------------------------------------
 // Redistribution and use in source and binary forms, with or without modification,
 // are permitted provided that the following conditions are met:
@@ -587,6 +587,9 @@ TSize FStreamer::writeString8 (const char8* ptr, bool terminate)
 //------------------------------------------------------------------------
 TSize FStreamer::readString8 (char8* ptr, TSize size)
 {
+	if (size < 1 || ptr == nullptr)
+		return 0;
+
 	TSize i = 0;
 	char8 c = 0;
 	while (i < size)
@@ -594,18 +597,21 @@ TSize FStreamer::readString8 (char8* ptr, TSize size)
 		if (readRaw ((void*)&c, sizeof (char)) != sizeof (char))
 			break;
 		ptr[i] = c;
-		i++;
 		if (c == '\n' || c == '\0')
 			break;
+		i++;
 	}
-	if (c == '\n' && ptr[i - 2] == '\r')
-		ptr[i - 2] = 0;
-	if (i < size)
-		ptr[i] = 0;
-	else
-		ptr[size - 1] = 0;
-
-	return strlen (ptr);
+	// remove at end \n (LF) or \r\n (CR+LF)
+	if (c == '\n')
+	{
+		if (i > 0 && ptr[i - 1] == '\r')
+			i--;
+	}
+	if (i >= size)
+		i = size - 1;
+	ptr[i] = 0;
+	
+	return i;
 }
 
 //------------------------------------------------------------------------
@@ -717,7 +723,7 @@ char8* FStreamer::readStr8 ()
 	if (length > 262144)
 		return nullptr;
 
-	char8* s = (length > 0) ? NEWVEC char8[length] : nullptr;
+	char8* s = (length > 0) ? NEWSTR8 (length) : nullptr;
 	if (s)
 		readRaw (s, length * sizeof (char8));
 	return s;

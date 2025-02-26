@@ -86,10 +86,12 @@
 #define ENDLINE ENDLINE_A
 #endif
 
-#if SMTG_OS_WINDOWS && !defined(__GNUC__) && defined(_MSC_VER) && (_MSC_VER < 1900)
+#if SMTG_OS_WINDOWS && !defined(__GNUC__) && defined(_MSC_VER)
 #define stricmp _stricmp
 #define strnicmp _strnicmp
+#if (_MSC_VER < 1900)
 #define snprintf _snprintf
+#endif
 #endif
 
 namespace Steinberg {
@@ -133,12 +135,11 @@ inline SMTG_CONSTEXPR14 int32 _tstrcmp (const T* src, const T* dst)
 
 	if (*src == 0 && *dst == 0)
 		return 0;
-	else if (*src == 0)
+	if (*src == 0)
 		return -1;
-	else if (*dst == 0)
+	if (*dst == 0)
 		return 1;
-	else
-		return (int32) (*src - *dst);
+	return (int32) (*src - *dst);
 }
 
 inline SMTG_CONSTEXPR14 int32 tstrcmp (const tchar* src, const tchar* dst) {return _tstrcmp (src, dst);}
@@ -169,12 +170,11 @@ inline SMTG_CONSTEXPR14 int32 _tstrncmp (const T* first, const T* last, uint32 c
 
 	if (*first == 0 && *last == 0)
 		return 0;
-	else if (*first == 0)
+	if (*first == 0)
 		return -1;
-	else if (*last == 0)
+	if (*last == 0)
 		return 1;
-	else
-		return (int32) (*first - *last);
+	return (int32) (*first - *last);
 }
 
 inline SMTG_CONSTEXPR14 int32 tstrncmp (const tchar* first, const tchar* last, uint32 count) {return _tstrncmp (first, last, count);}
@@ -248,7 +248,7 @@ inline SMTG_CONSTEXPR14 void str8ToStr16 (char16* dst, const char8* src, int32 n
 	int32 i = 0;
 	for (;;)
 	{
-		if (i == n)
+		if (i == (n - 1))
 		{
 			dst[i] = 0;
 			return;

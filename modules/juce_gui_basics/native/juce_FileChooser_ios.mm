@@ -1,24 +1,33 @@
 /*
   ==============================================================================
 
-   This file is part of the JUCE library.
-   Copyright (c) 2022 - Raw Material Software Limited
+   This file is part of the JUCE framework.
+   Copyright (c) Raw Material Software Limited
 
-   JUCE is an open source library subject to commercial or open-source
+   JUCE is an open source framework subject to commercial or open source
    licensing.
 
-   By using JUCE, you agree to the terms of both the JUCE 7 End-User License
-   Agreement and JUCE Privacy Policy.
+   By downloading, installing, or using the JUCE framework, or combining the
+   JUCE framework with any other source code, object code, content or any other
+   copyrightable work, you agree to the terms of the JUCE End User Licence
+   Agreement, and all incorporated terms including the JUCE Privacy Policy and
+   the JUCE Website Terms of Service, as applicable, which will bind you. If you
+   do not agree to the terms of these agreements, we will not license the JUCE
+   framework to you, and you must discontinue the installation or download
+   process and cease use of the JUCE framework.
 
-   End User License Agreement: www.juce.com/juce-7-licence
-   Privacy Policy: www.juce.com/juce-privacy-policy
+   JUCE End User Licence Agreement: https://juce.com/legal/juce-8-licence/
+   JUCE Privacy Policy: https://juce.com/juce-privacy-policy
+   JUCE Website Terms of Service: https://juce.com/juce-website-terms-of-service/
 
-   Or: You may also use this code under the terms of the GPL v3 (see
-   www.gnu.org/licenses).
+   Or:
 
-   JUCE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES, WHETHER
-   EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR PURPOSE, ARE
-   DISCLAIMED.
+   You may also use this code under the terms of the AGPLv3:
+   https://www.gnu.org/licenses/agpl-3.0.en.html
+
+   THE JUCE FRAMEWORK IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL
+   WARRANTIES, WHETHER EXPRESSED OR IMPLIED, INCLUDING WARRANTY OF
+   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, ARE DISCLAIMED.
 
   ==============================================================================
 */
@@ -27,23 +36,17 @@
 - (void) setParent: (FileChooser::Native*) ptr;
 @end
 
-@interface FileChooserDelegateClass : NSObject<UIDocumentPickerDelegate>
+@interface FileChooserDelegateClass : NSObject<UIDocumentPickerDelegate, UIAdaptivePresentationControllerDelegate>
 - (id) initWithOwner: (FileChooser::Native*) owner;
 @end
 
 namespace juce
 {
 
-#if ! (defined (__IPHONE_16_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_16_0)
- JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wdeprecated-declarations")
- #define JUCE_DEPRECATION_IGNORED 1
-#endif
-
 //==============================================================================
-class FileChooser::Native  : public FileChooser::Pimpl,
-                             public detail::NativeModalWrapperComponent,
-                             public AsyncUpdater,
-                             public std::enable_shared_from_this<Native>
+class FileChooser::Native final : public FileChooser::Pimpl,
+                                  public detail::NativeModalWrapperComponent,
+                                  public std::enable_shared_from_this<Native>
 {
 public:
     static std::shared_ptr<Native> make (FileChooser& fileChooser, int flags)
@@ -61,7 +64,7 @@ public:
     {
         jassert (shared_from_this() != nullptr);
 
-        /*  Normally, when deleteWhenDismissed is true, the modal component manger will keep a copy of a raw pointer
+        /*  Normally, when deleteWhenDismissed is true, the modal component manager will keep a copy of a raw pointer
             to our component and delete it when the modal state has ended. However, this is incompatible with
             our class being tracked by shared_ptr as it will force delete our class regardless of the current
             reference count. On the other hand, it's important that the modal manager keeps a reference as it can
@@ -86,18 +89,10 @@ public:
        #endif
     }
 
-    void handleAsyncUpdate() override
-    {
-        pickerWasCancelled();
-    }
-
     //==============================================================================
     void didPickDocumentsAtURLs (NSArray<NSURL*>* urls)
     {
-        cancelPendingUpdate();
-
-        const auto isWriting =  controller.get().documentPickerMode == UIDocumentPickerModeExportToService
-                             || controller.get().documentPickerMode == UIDocumentPickerModeMoveToService;
+        const auto isWriting = (savedFlags & FileBrowserComponent::saveMode) != 0;
         const auto accessOptions = isWriting ? 0 : NSFileCoordinatorReadingWithoutChanges;
 
         auto* fileCoordinator = [[[NSFileCoordinator alloc] initWithFilePresenter: nil] autorelease];
@@ -169,23 +164,96 @@ public:
 private:
     UIViewController* getViewController() const override { return controller.get(); }
 
+    struct CreateSaveControllerTrait
+    {
+        API_AVAILABLE (ios (14))
+        static FileChooserControllerClass* newFn (NSURL* url, const File& currentFileOrDirectory)
+        {
+            return [[FileChooserControllerClass alloc] initForExportingURLs: @[url] asCopy: currentFileOrDirectory.existsAsFile()];
+        }
+
+        static FileChooserControllerClass* oldFn (NSURL* url, const File& currentFileOrDirectory)
+        {
+            JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wdeprecated-declarations")
+            const auto pickerMode = currentFileOrDirectory.existsAsFile()
+                                  ? UIDocumentPickerModeExportToService
+                                  : UIDocumentPickerModeMoveToService;
+            return [[FileChooserControllerClass alloc] initWithURL: url inMode: pickerMode];
+            JUCE_END_IGNORE_WARNINGS_GCC_LIKE
+        }
+    };
+
+    struct CreateOpenControllerTrait
+    {
+        API_AVAILABLE (ios (14))
+        static FileChooserControllerClass* newFn (int flags, const StringArray& validExtensions)
+        {
+            NSUniquePtr<NSMutableArray> types ([[NSMutableArray alloc] init]);
+
+            if ((flags & FileBrowserComponent::canSelectDirectories) != 0)
+            {
+                if (auto* ptr = [UTType typeWithIdentifier: @"public.folder"])
+                    [types.get() addObject: ptr];
+            }
+            else
+            {
+                if (validExtensions.isEmpty())
+                    if (auto* ptr = [UTType typeWithIdentifier: @"public.data"])
+                        [types.get() addObject: ptr];
+
+                for (const auto& extension : validExtensions)
+                    if (auto* ptr = [UTType typeWithFilenameExtension: juceStringToNS (extension)])
+                        [types.get() addObject: ptr];
+            }
+
+            return [[FileChooserControllerClass alloc] initForOpeningContentTypes: types.get()];
+        }
+
+        static FileChooserControllerClass* oldFn (int flags, const StringArray& validExtensions)
+        {
+            const NSUniquePtr<NSArray> utTypeArray { std::invoke ([&]
+            {
+                if ((flags & FileBrowserComponent::canSelectDirectories) != 0)
+                    return @[@"public.folder"];
+
+                if (validExtensions.isEmpty())
+                    return @[@"public.data"];
+
+                StringArray result;
+
+                for (const auto& extension : validExtensions)
+                {
+                    if (extension.isEmpty())
+                        continue;
+
+                    CFUniquePtr<CFStringRef> fileExtensionCF (extension.toCFString());
+
+                    JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wdeprecated-declarations")
+                    if (CFUniquePtr<CFStringRef> tag { UTTypeCreatePreferredIdentifierForTag (kUTTagClassFilenameExtension, fileExtensionCF.get(), nullptr) })
+                        result.add (String::fromCFString (tag.get()));
+                    JUCE_END_IGNORE_WARNINGS_GCC_LIKE
+                }
+
+                return createNSArrayFromStringArray (result);
+            }) };
+
+            JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wdeprecated-declarations")
+            return [[FileChooserControllerClass alloc] initWithDocumentTypes: utTypeArray.get() inMode: UIDocumentPickerModeOpen];
+            JUCE_END_IGNORE_WARNINGS_GCC_LIKE
+        }
+    };
+
     Native (FileChooser& fileChooser, int flags)
-        : owner (fileChooser)
+        : owner (fileChooser),
+          savedFlags (flags)
     {
         delegate.reset ([[FileChooserDelegateClass alloc] initWithOwner: this]);
 
         const auto validExtensions = getValidExtensionsForWildcards (owner.filters);
-        const auto utTypeArray = (flags & FileBrowserComponent::canSelectDirectories) != 0
-                               ? @[@"public.folder"]
-                               : createNSArrayFromStringArray (getUTTypesForExtensions (validExtensions));
 
         if ((flags & FileBrowserComponent::saveMode) != 0)
         {
             auto currentFileOrDirectory = owner.startingFile;
-
-            UIDocumentPickerMode pickerMode = currentFileOrDirectory.existsAsFile()
-                                                ? UIDocumentPickerModeExportToService
-                                                : UIDocumentPickerModeMoveToService;
 
             if (! currentFileOrDirectory.existsAsFile())
             {
@@ -208,27 +276,25 @@ private:
                 }
             }
 
-            auto url = [[NSURL alloc] initFileURLWithPath: juceStringToNS (currentFileOrDirectory.getFullPathName())];
-
-            controller.reset ([[FileChooserControllerClass alloc] initWithURL: url inMode: pickerMode]);
-            [url release];
+            const NSUniquePtr<NSURL> url { [[NSURL alloc] initFileURLWithPath: juceStringToNS (currentFileOrDirectory.getFullPathName())] };
+            controller.reset (ifelse_14_0<CreateSaveControllerTrait> (url.get(), currentFileOrDirectory));
         }
         else
         {
-            controller.reset ([[FileChooserControllerClass alloc] initWithDocumentTypes: utTypeArray inMode: UIDocumentPickerModeOpen]);
-
-            if (@available (iOS 11.0, *))
-                [controller.get() setAllowsMultipleSelection: (flags & FileBrowserComponent::canSelectMultipleItems) != 0];
+            controller.reset (ifelse_14_0<CreateOpenControllerTrait> (flags, validExtensions));
+            [controller.get() setAllowsMultipleSelection: (flags & FileBrowserComponent::canSelectMultipleItems) != 0];
         }
 
         [controller.get() setDelegate: delegate.get()];
+
+        if (auto* pc = [controller.get() presentationController])
+            [pc setDelegate: delegate.get()];
 
         displayNativeWindowModally (fileChooser.parent);
     }
 
     void passResultsToInitiator (Array<URL> urls)
     {
-        cancelPendingUpdate();
         exitModalState (0);
 
         // If the caller attempts to show a platform-native dialog box inside the results callback (e.g. in the DialogsDemo)
@@ -270,27 +336,6 @@ private:
         return result;
     }
 
-    static StringArray getUTTypesForExtensions (const StringArray& extensions)
-    {
-        if (extensions.isEmpty())
-            return { "public.data" };
-
-        StringArray result;
-
-        for (const auto& extension : extensions)
-        {
-            if (extension.isEmpty())
-                continue;
-
-            CFUniquePtr<CFStringRef> fileExtensionCF (extension.toCFString());
-
-            if (const auto tag = CFUniquePtr<CFStringRef> (UTTypeCreatePreferredIdentifierForTag (kUTTagClassFilenameExtension, fileExtensionCF.get(), nullptr)))
-                result.add (String::fromCFString (tag.get()));
-        }
-
-        return result;
-    }
-
     static String getFilename (const File& path, const String& fallbackExtension)
     {
         auto filename  = path.getFileNameWithoutExtension();
@@ -310,8 +355,9 @@ private:
 
     //==============================================================================
     FileChooser& owner;
-    NSUniquePtr<NSObject<UIDocumentPickerDelegate>> delegate;
+    NSUniquePtr<NSObject<UIDocumentPickerDelegate, UIAdaptivePresentationControllerDelegate>> delegate;
     NSUniquePtr<FileChooserControllerClass> controller;
+    int savedFlags = 0;
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Native)
@@ -333,10 +379,6 @@ std::shared_ptr<FileChooser::Pimpl> FileChooser::showPlatformDialog (FileChooser
     return Native::make (owner, flags);
 }
 
-#if JUCE_DEPRECATION_IGNORED
- JUCE_END_IGNORE_WARNINGS_GCC_LIKE
-#endif
-
 } // namespace juce
 
 @implementation FileChooserControllerClass
@@ -349,14 +391,6 @@ std::shared_ptr<FileChooser::Pimpl> FileChooser::showPlatformDialog (FileChooser
     jassert (parent != nullptr);
     jassert (parent->shared_from_this() != nullptr);
     ptr = parent->weak_from_this();
-}
-
-- (void) viewDidDisappear: (BOOL) animated
-{
-    [super viewDidDisappear: animated];
-
-    if (auto nativeParent = ptr.lock())
-        nativeParent->triggerAsyncUpdate();
 }
 
 @end
@@ -373,14 +407,6 @@ std::shared_ptr<FileChooser::Pimpl> FileChooser::showPlatformDialog (FileChooser
     return self;
 }
 
-JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wdeprecated-implementations")
-- (void) documentPicker: (UIDocumentPickerViewController*) controller didPickDocumentAtURL: (NSURL*) url
-{
-    if (owner != nullptr)
-        owner->didPickDocumentAtURL (url);
-}
-JUCE_END_IGNORE_WARNINGS_GCC_LIKE
-
 - (void) documentPicker: (UIDocumentPickerViewController*) controller didPickDocumentsAtURLs: (NSArray<NSURL*>*) urls
 {
     if (owner != nullptr)
@@ -388,6 +414,12 @@ JUCE_END_IGNORE_WARNINGS_GCC_LIKE
 }
 
 - (void) documentPickerWasCancelled: (UIDocumentPickerViewController*) controller
+{
+    if (owner != nullptr)
+        owner->pickerWasCancelled();
+}
+
+- (void) presentationControllerDidDismiss: (UIPresentationController *) presentationController
 {
     if (owner != nullptr)
         owner->pickerWasCancelled();

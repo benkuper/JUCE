@@ -1,21 +1,33 @@
 /*
   ==============================================================================
 
-   This file is part of the JUCE library.
-   Copyright (c) 2022 - Raw Material Software Limited
+   This file is part of the JUCE framework.
+   Copyright (c) Raw Material Software Limited
 
-   JUCE is an open source library subject to commercial or open-source
+   JUCE is an open source framework subject to commercial or open source
    licensing.
 
-   The code included in this file is provided under the terms of the ISC license
-   http://www.isc.org/downloads/software-support-policy/isc-license. Permission
-   To use, copy, modify, and/or distribute this software for any purpose with or
-   without fee is hereby granted provided that the above copyright notice and
-   this permission notice appear in all copies.
+   By downloading, installing, or using the JUCE framework, or combining the
+   JUCE framework with any other source code, object code, content or any other
+   copyrightable work, you agree to the terms of the JUCE End User Licence
+   Agreement, and all incorporated terms including the JUCE Privacy Policy and
+   the JUCE Website Terms of Service, as applicable, which will bind you. If you
+   do not agree to the terms of these agreements, we will not license the JUCE
+   framework to you, and you must discontinue the installation or download
+   process and cease use of the JUCE framework.
 
-   JUCE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES, WHETHER
-   EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR PURPOSE, ARE
-   DISCLAIMED.
+   JUCE End User Licence Agreement: https://juce.com/legal/juce-8-licence/
+   JUCE Privacy Policy: https://juce.com/juce-privacy-policy
+   JUCE Website Terms of Service: https://juce.com/juce-website-terms-of-service/
+
+   Or:
+
+   You may also use this code under the terms of the AGPLv3:
+   https://www.gnu.org/licenses/agpl-3.0.en.html
+
+   THE JUCE FRAMEWORK IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL
+   WARRANTIES, WHETHER EXPRESSED OR IMPLIED, INCLUDING WARRANTY OF
+   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, ARE DISCLAIMED.
 
   ==============================================================================
 */
@@ -101,12 +113,12 @@ static MaxNumFileHandlesInitialiser maxNumFileHandlesInitialiser;
 //==============================================================================
 #if JUCE_ALLOW_STATIC_NULL_VARIABLES
 
-JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wdeprecated-declarations")
+JUCE_BEGIN_IGNORE_DEPRECATION_WARNINGS
 
 const juce_wchar File::separator = '/';
 const StringRef File::separatorString ("/");
 
-JUCE_END_IGNORE_WARNINGS_GCC_LIKE
+JUCE_END_IGNORE_DEPRECATION_WARNINGS
 
 #endif
 
@@ -140,7 +152,7 @@ bool File::setAsCurrentWorkingDirectory() const
 
 //==============================================================================
 // The unix siginterrupt function is deprecated - this does the same job.
-int juce_siginterrupt ([[maybe_unused]] int sig, [[maybe_unused]] int flag)
+inline int juce_siginterrupt ([[maybe_unused]] int sig, [[maybe_unused]] int flag)
 {
    #if JUCE_WASM
     return 0;
@@ -229,9 +241,6 @@ namespace
     {
         return value == -1 ? getResultForErrno() : Result::ok();
     }
-
-    int getFD (void* handle) noexcept        { return (int) (pointer_sized_int) handle; }
-    void* fdToVoidPointer (int fd) noexcept  { return (void*) (pointer_sized_int) fd; }
 }
 
 bool File::isDirectory() const
@@ -405,6 +414,9 @@ bool File::moveInternal (const File& dest) const
     if (rename (fullPath.toUTF8(), dest.getFullPathName().toUTF8()) == 0)
         return true;
 
+    if (isNonEmptyDirectory())
+        return false;
+
     if (hasWriteAccess() && copyInternal (dest))
     {
         if (deleteFile())
@@ -427,9 +439,9 @@ Result File::createDirectoryInternal (const String& fileName) const
 }
 
 //==============================================================================
-int64 juce_fileSetPosition (void* handle, int64 pos)
+int64 juce_fileSetPosition (detail::NativeFileHandle handle, int64 pos)
 {
-    if (handle != nullptr && lseek (getFD (handle), (off_t) pos, SEEK_SET) == pos)
+    if (handle.isValid() && lseek (handle.get(), (off_t) pos, SEEK_SET) == pos)
         return pos;
 
     return -1;
@@ -440,24 +452,24 @@ void FileInputStream::openHandle()
     auto f = open (file.getFullPathName().toUTF8(), O_RDONLY);
 
     if (f != -1)
-        fileHandle = fdToVoidPointer (f);
+        fileHandle.set (f);
     else
         status = getResultForErrno();
 }
 
 FileInputStream::~FileInputStream()
 {
-    if (fileHandle != nullptr)
-        close (getFD (fileHandle));
+    if (fileHandle.isValid())
+        close (fileHandle.get());
 }
 
 size_t FileInputStream::readInternal (void* buffer, size_t numBytes)
 {
     ssize_t result = 0;
 
-    if (fileHandle != nullptr)
+    if (fileHandle.isValid())
     {
-        result = ::read (getFD (fileHandle), buffer, numBytes);
+        result = ::read (fileHandle.get(), buffer, numBytes);
 
         if (result < 0)
         {
@@ -482,7 +494,7 @@ void FileOutputStream::openHandle()
 
             if (currentPosition >= 0)
             {
-                fileHandle = fdToVoidPointer (f);
+                fileHandle.set (f);
             }
             else
             {
@@ -500,7 +512,7 @@ void FileOutputStream::openHandle()
         auto f = open (file.getFullPathName().toUTF8(), O_RDWR | O_CREAT, 00644);
 
         if (f != -1)
-            fileHandle = fdToVoidPointer (f);
+            fileHandle.set (f);
         else
             status = getResultForErrno();
     }
@@ -508,19 +520,19 @@ void FileOutputStream::openHandle()
 
 void FileOutputStream::closeHandle()
 {
-    if (fileHandle != nullptr)
+    if (fileHandle.isValid())
     {
-        close (getFD (fileHandle));
-        fileHandle = nullptr;
+        close (fileHandle.get());
+        fileHandle.invalidate();
     }
 }
 
 ssize_t FileOutputStream::writeInternal (const void* data, size_t numBytes)
 {
-    if (fileHandle == nullptr)
+    if (! fileHandle.isValid())
         return 0;
 
-    auto result = ::write (getFD (fileHandle), data, numBytes);
+    auto result = ::write (fileHandle.get(), data, numBytes);
 
     if (result == -1)
         status = getResultForErrno();
@@ -531,18 +543,18 @@ ssize_t FileOutputStream::writeInternal (const void* data, size_t numBytes)
 #ifndef JUCE_ANDROID
 void FileOutputStream::flushInternal()
 {
-    if (fileHandle != nullptr && fsync (getFD (fileHandle)) == -1)
+    if (fileHandle.isValid() && fsync (fileHandle.get()) == -1)
         status = getResultForErrno();
 }
 #endif
 
 Result FileOutputStream::truncate()
 {
-    if (fileHandle == nullptr)
+    if (! fileHandle.isValid())
         return status;
 
     flush();
-    return getResultForReturnValue (ftruncate (getFD (fileHandle), (off_t) currentPosition));
+    return getResultForReturnValue (ftruncate (fileHandle.get(), (off_t) currentPosition));
 }
 
 //==============================================================================
@@ -854,7 +866,7 @@ class PosixThreadAttribute
 public:
     explicit PosixThreadAttribute (size_t stackSize)
     {
-        if (valid)
+        if (valid && stackSize != 0)
             pthread_attr_setstacksize (&attr, stackSize);
     }
 
@@ -894,7 +906,7 @@ public:
                 const auto min = jmax (0, sched_get_priority_min (SCHED_RR));
                 const auto max = jmax (1, sched_get_priority_max (SCHED_RR));
 
-                return jmap (rt->priority, 0, 10, min, max);
+                return jmap (rt->getPriority(), 0, 10, min, max);
             }
 
             // We only use this helper if we're on an old macos/ios platform that might
@@ -959,11 +971,13 @@ private:
     int priority;
 };
 
-static void* makeThreadHandle (PosixThreadAttribute& attr, Thread* userData, void* (*threadEntryProc) (void*))
+static void* makeThreadHandle (PosixThreadAttribute& attr, void* userData, void* (*threadEntryProc) (void*))
 {
     pthread_t handle = {};
 
-    if (pthread_create (&handle, attr.get(), threadEntryProc, userData) != 0)
+    const auto status = pthread_create (&handle, attr.get(), threadEntryProc, userData);
+
+    if (status != 0)
         return nullptr;
 
     pthread_detach (handle);

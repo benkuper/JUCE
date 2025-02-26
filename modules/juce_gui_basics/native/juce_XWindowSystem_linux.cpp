@@ -1,24 +1,33 @@
 /*
   ==============================================================================
 
-   This file is part of the JUCE library.
-   Copyright (c) 2022 - Raw Material Software Limited
+   This file is part of the JUCE framework.
+   Copyright (c) Raw Material Software Limited
 
-   JUCE is an open source library subject to commercial or open-source
+   JUCE is an open source framework subject to commercial or open source
    licensing.
 
-   By using JUCE, you agree to the terms of both the JUCE 7 End-User License
-   Agreement and JUCE Privacy Policy.
+   By downloading, installing, or using the JUCE framework, or combining the
+   JUCE framework with any other source code, object code, content or any other
+   copyrightable work, you agree to the terms of the JUCE End User Licence
+   Agreement, and all incorporated terms including the JUCE Privacy Policy and
+   the JUCE Website Terms of Service, as applicable, which will bind you. If you
+   do not agree to the terms of these agreements, we will not license the JUCE
+   framework to you, and you must discontinue the installation or download
+   process and cease use of the JUCE framework.
 
-   End User License Agreement: www.juce.com/juce-7-licence
-   Privacy Policy: www.juce.com/juce-privacy-policy
+   JUCE End User Licence Agreement: https://juce.com/legal/juce-8-licence/
+   JUCE Privacy Policy: https://juce.com/juce-privacy-policy
+   JUCE Website Terms of Service: https://juce.com/juce-website-terms-of-service/
 
-   Or: You may also use this code under the terms of the GPL v3 (see
-   www.gnu.org/licenses).
+   Or:
 
-   JUCE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES, WHETHER
-   EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR PURPOSE, ARE
-   DISCLAIMED.
+   You may also use this code under the terms of the AGPLv3:
+   https://www.gnu.org/licenses/agpl-3.0.en.html
+
+   THE JUCE FRAMEWORK IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL
+   WARRANTIES, WHETHER EXPRESSED OR IMPLIED, INCLUDING WARRANTY OF
+   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, ARE DISCLAIMED.
 
   ==============================================================================
 */
@@ -844,7 +853,7 @@ namespace Visuals
 }
 
 //================================= X11 - Bitmap ===============================
-class XBitmapImage  : public ImagePixelData
+class XBitmapImage final : public ImagePixelData
 {
 public:
     explicit XBitmapImage (XImage* image)
@@ -1789,6 +1798,68 @@ void XWindowSystem::setBounds (::Window windowH, Rectangle<int> newBounds, bool 
     }
 }
 
+void XWindowSystem::startHostManagedResize (::Window windowH,
+                                            ResizableBorderComponent::Zone zone)
+{
+    const auto moveResize = XWindowSystemUtilities::Atoms::getIfExists (display, "_NET_WM_MOVERESIZE");
+
+    if (moveResize == None)
+        return;
+
+    XWindowSystemUtilities::ScopedXLock xLock;
+
+    X11Symbols::getInstance()->xUngrabPointer (display, CurrentTime);
+
+    const auto root = X11Symbols::getInstance()->xRootWindow (display, X11Symbols::getInstance()->xDefaultScreen (display));
+    const auto mouseDown = getCurrentMousePosition();
+
+    XClientMessageEvent clientMsg;
+    clientMsg.display = display;
+    clientMsg.window = windowH;
+    clientMsg.type = ClientMessage;
+    clientMsg.format = 32;
+    clientMsg.message_type = moveResize;
+    clientMsg.data.l[0] = (long) mouseDown.x;
+    clientMsg.data.l[1] = (long) mouseDown.y;
+    clientMsg.data.l[2] = [&]
+    {
+        // It's unclear which header is supposed to contain these
+        static constexpr auto _NET_WM_MOVERESIZE_SIZE_TOPLEFT      = 0;
+        static constexpr auto _NET_WM_MOVERESIZE_SIZE_TOP          = 1;
+        static constexpr auto _NET_WM_MOVERESIZE_SIZE_TOPRIGHT     = 2;
+        static constexpr auto _NET_WM_MOVERESIZE_SIZE_RIGHT        = 3;
+        static constexpr auto _NET_WM_MOVERESIZE_SIZE_BOTTOMRIGHT  = 4;
+        static constexpr auto _NET_WM_MOVERESIZE_SIZE_BOTTOM       = 5;
+        static constexpr auto _NET_WM_MOVERESIZE_SIZE_BOTTOMLEFT   = 6;
+        static constexpr auto _NET_WM_MOVERESIZE_SIZE_LEFT         = 7;
+        static constexpr auto _NET_WM_MOVERESIZE_MOVE              = 8;
+
+        using F = ResizableBorderComponent::Zone::Zones;
+
+        switch (zone.getZoneFlags())
+        {
+            case F::top | F::left:      return _NET_WM_MOVERESIZE_SIZE_TOPLEFT;
+            case F::top:                return _NET_WM_MOVERESIZE_SIZE_TOP;
+            case F::top | F::right:     return _NET_WM_MOVERESIZE_SIZE_TOPRIGHT;
+            case F::right:              return _NET_WM_MOVERESIZE_SIZE_RIGHT;
+            case F::bottom | F::right:  return _NET_WM_MOVERESIZE_SIZE_BOTTOMRIGHT;
+            case F::bottom:             return _NET_WM_MOVERESIZE_SIZE_BOTTOM;
+            case F::bottom | F::left:   return _NET_WM_MOVERESIZE_SIZE_BOTTOMLEFT;
+            case F::left:               return _NET_WM_MOVERESIZE_SIZE_LEFT;
+        }
+
+        return _NET_WM_MOVERESIZE_MOVE;
+    }();
+    clientMsg.data.l[3] = 0;
+    clientMsg.data.l[4] = 1;
+
+    X11Symbols::getInstance()->xSendEvent (display,
+                                           root,
+                                           false,
+                                           SubstructureRedirectMask | SubstructureNotifyMask,
+                                           unalignedPointerCast<XEvent*> (&clientMsg));
+}
+
 void XWindowSystem::updateConstraints (::Window windowH) const
 {
     if (auto* peer = getPeerFor (windowH))
@@ -1932,23 +2003,9 @@ void XWindowSystem::setMinimised (::Window windowH, bool shouldBeMinimised) cons
     }
 }
 
-bool XWindowSystem::isMinimised (::Window windowH) const
+bool XWindowSystem::isMinimised (::Window w) const
 {
-    jassert (windowH != 0);
-
-    XWindowSystemUtilities::ScopedXLock xLock;
-    XWindowSystemUtilities::GetXProperty prop (display, windowH, atoms.state, 0, 64, false, atoms.state);
-
-    if (prop.success && prop.actualType == atoms.state
-        && prop.actualFormat == 32 && prop.numItems > 0)
-    {
-        unsigned long state;
-        memcpy (&state, prop.data, sizeof (unsigned long));
-
-        return state == IconicState;
-    }
-
-    return false;
+    return isHidden (w);
 }
 
 void XWindowSystem::setMaximised (::Window windowH, bool shouldBeMaximised) const
@@ -2150,7 +2207,7 @@ void XWindowSystem::blitToWindow (::Window windowH, Image image, Rectangle<int> 
 {
     jassert (windowH != 0);
 
-    auto* xbitmap = static_cast<XBitmapImage*> (image.getPixelData());
+    auto* xbitmap = static_cast<XBitmapImage*> (image.getPixelData().get());
 
     xbitmap->blitToWindow (windowH,
                            destinationRect.getX(), destinationRect.getY(),
@@ -2213,8 +2270,7 @@ void XWindowSystem::setScreenSaverEnabled (bool enabled) const
 
     XWindowSystemUtilities::ScopedXLock xLock;
 
-    if (xScreenSaverSuspend != nullptr)
-        xScreenSaverSuspend (display, ! enabled);
+    NullCheckedInvocation::invoke (xScreenSaverSuspend, display, ! enabled);
 }
 
 Point<float> XWindowSystem::getCurrentMousePosition() const
@@ -2458,7 +2514,7 @@ ModifierKeys XWindowSystem::getNativeRealtimeModifiers() const
     ::Window root, child;
     int x, y, winx, winy;
     unsigned int mask;
-    int mouseMods = 0;
+    int mouseMods = 0, keyboardMods = 0, keyboardClearMods = 0;
 
     XWindowSystemUtilities::ScopedXLock xLock;
 
@@ -2470,9 +2526,15 @@ ModifierKeys XWindowSystem::getNativeRealtimeModifiers() const
         if ((mask & Button1Mask) != 0)  mouseMods |= ModifierKeys::leftButtonModifier;
         if ((mask & Button2Mask) != 0)  mouseMods |= ModifierKeys::middleButtonModifier;
         if ((mask & Button3Mask) != 0)  mouseMods |= ModifierKeys::rightButtonModifier;
+
+        ((mask & ShiftMask)     != 0 ? keyboardMods : keyboardClearMods) |= ModifierKeys::shiftModifier;
+        ((mask & ControlMask)   != 0 ? keyboardMods : keyboardClearMods) |= ModifierKeys::ctrlModifier;
     }
 
-    ModifierKeys::currentModifiers = ModifierKeys::currentModifiers.withoutMouseButtons().withFlags (mouseMods);
+    ModifierKeys::currentModifiers = ModifierKeys::currentModifiers.withoutMouseButtons()
+                                                                   .withFlags (mouseMods)
+                                                                   .withoutFlags (keyboardClearMods)
+                                                                   .withFlags (keyboardMods);
 
     // We are keeping track of the state of modifier keys and mouse buttons with the assumption that
     // for every mouse down we are going to receive a mouse up etc.
@@ -3711,6 +3773,8 @@ void XWindowSystem::dismissBlockingModals (LinuxComponentPeer* peer) const
 
 void XWindowSystem::handleConfigureNotifyEvent (LinuxComponentPeer* peer, XConfigureEvent& confEvent) const
 {
+    const ScopedValueSetter<bool> scope { peer->inConfigureNotifyHandler, true };
+
     peer->updateWindowBounds();
     peer->updateBorderSize();
     peer->handleMovedOrResized();
@@ -3732,35 +3796,46 @@ void XWindowSystem::handleGravityNotify (LinuxComponentPeer* peer) const
     peer->handleMovedOrResized();
 }
 
+bool XWindowSystem::isIconic (Window w) const
+{
+    jassert (w != 0);
+
+    XWindowSystemUtilities::ScopedXLock xLock;
+    XWindowSystemUtilities::GetXProperty prop (display, w, atoms.state, 0, 64, false, atoms.state);
+
+    if (prop.success && prop.actualType == atoms.state
+        && prop.actualFormat == 32 && prop.numItems > 0)
+    {
+        unsigned long state;
+        memcpy (&state, prop.data, sizeof (unsigned long));
+
+        return state == IconicState;
+    }
+
+    return false;
+}
+
+bool XWindowSystem::isHidden (Window w) const
+{
+    XWindowSystemUtilities::ScopedXLock xLock;
+    XWindowSystemUtilities::GetXProperty prop (display, w, atoms.windowState, 0, 128, false, XA_ATOM);
+
+    if (! (prop.success && prop.actualFormat == 32 && prop.actualType == XA_ATOM))
+        return false;
+
+    const auto* data = unalignedPointerCast<const long*> (prop.data);
+    const auto end = data + prop.numItems;
+
+    return std::find (data, end, atoms.windowStateHidden) != end;
+}
+
 void XWindowSystem::propertyNotifyEvent (LinuxComponentPeer* peer, const XPropertyEvent& event) const
 {
-    const auto isStateChangeEvent = [&]
+    if ((event.atom == atoms.state && isIconic (event.window))
+        || (event.atom == atoms.windowState && isHidden (event.window)))
     {
-        if (event.atom != atoms.state)
-            return false;
-
-        return isMinimised (event.window);
-    };
-
-    const auto isHidden = [&]
-    {
-        if (event.atom != atoms.windowState)
-            return false;
-
-        XWindowSystemUtilities::ScopedXLock xLock;
-        XWindowSystemUtilities::GetXProperty prop (display, event.window, atoms.windowState, 0, 128, false, XA_ATOM);
-
-        if (! (prop.success && prop.actualFormat == 32 && prop.actualType == XA_ATOM))
-            return false;
-
-        const auto* data = unalignedPointerCast<const long*> (prop.data);
-        const auto end = data + prop.numItems;
-
-        return std::find (data, end, atoms.windowStateHidden) != end;
-    };
-
-    if (isStateChangeEvent() || isHidden())
         dismissBlockingModals (peer);
+    }
 
     if (event.atom == XWindowSystemUtilities::Atoms::getIfExists (display, "_NET_FRAME_EXTENTS"))
         peer->updateBorderSize();
@@ -3926,8 +4001,6 @@ void XWindowSystem::windowMessageReceive (XEvent& event)
 }
 
 //==============================================================================
-JUCE_IMPLEMENT_SINGLETON (XWindowSystem)
-
 Image createSnapshotOfNativeWindow (void* window)
 {
     ::Window root;

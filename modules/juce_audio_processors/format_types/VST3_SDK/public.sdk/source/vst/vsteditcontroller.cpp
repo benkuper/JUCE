@@ -8,7 +8,7 @@
 //
 //-----------------------------------------------------------------------------
 // LICENSE
-// (c) 2022, Steinberg Media Technologies GmbH, All Rights Reserved
+// (c) 2024, Steinberg Media Technologies GmbH, All Rights Reserved
 //-----------------------------------------------------------------------------
 // Redistribution and use in source and binary forms, with or without modification,
 // are permitted provided that the following conditions are met:
@@ -36,6 +36,7 @@
 
 #include "public.sdk/source/vst/vsteditcontroller.h"
 #include "base/source/updatehandler.h"
+#include "pluginterfaces/base/funknownimpl.h"
 #include "pluginterfaces/base/ustring.h"
 
 #include <cstdio>
@@ -349,6 +350,8 @@ bool EditControllerEx1::addUnit (Unit* unit)
 //------------------------------------------------------------------------
 tresult PLUGIN_API EditControllerEx1::getUnitInfo (int32 unitIndex, UnitInfo& info /*out*/)
 {
+	if (unitIndex < 0 || unitIndex >= static_cast<int32> (units.size ()))
+		return kResultFalse;
 	if (Unit* unit = units.at (unitIndex))
 	{
 		info = unit->getInfo ();
@@ -361,8 +364,7 @@ tresult PLUGIN_API EditControllerEx1::getUnitInfo (int32 unitIndex, UnitInfo& in
 tresult EditControllerEx1::notifyUnitSelection ()
 {
 	tresult result = kResultFalse;
-	FUnknownPtr<IUnitHandler> unitHandler (componentHandler);
-	if (unitHandler)
+	if (auto unitHandler = U::cast<IUnitHandler> (componentHandler))
 		result = unitHandler->notifyUnitSelection (selectedUnit);
 	return result;
 }
@@ -387,8 +389,7 @@ ProgramList* EditControllerEx1::getProgramList (ProgramListID listId) const
 tresult EditControllerEx1::notifyProgramListChange (ProgramListID listId, int32 programIndex)
 {
 	tresult result = kResultFalse;
-	FUnknownPtr<IUnitHandler> unitHandler (componentHandler);
-	if (unitHandler)
+	if (auto unitHandler = U::cast<IUnitHandler> (componentHandler))
 		result = unitHandler->notifyProgramListChange (listId, programIndex);
 	return result;
 }
@@ -476,8 +477,7 @@ void PLUGIN_API EditControllerEx1::update (FUnknown* changedUnknown, int32 /*mes
 	auto* programList = FCast<ProgramList> (changedUnknown);
 	if (programList)
 	{
-		FUnknownPtr<IUnitHandler> unitHandler (componentHandler);
-		if (unitHandler)
+		if (auto unitHandler = U::cast<IUnitHandler> (componentHandler))
 			unitHandler->notifyProgramListChange (programList->getID (), kAllProgramInvalid);
 	}
 }
@@ -559,9 +559,10 @@ tresult ProgramList::getProgramInfo (int32 programIndex, CString attributeId,
 		StringMap::const_iterator it = programInfos[programIndex].find (attributeId);
 		if (it != programInfos[programIndex].end ())
 		{
-			if (!it->second.isEmpty ())
+			if (!it->second.empty ())
 			{
-				it->second.copyTo16 (value, 0, 128);
+				memset (value, 0, sizeof (String128));
+				it->second.copy (value, 128);
 				return kResultTrue;
 			}
 		}
@@ -574,7 +575,8 @@ tresult ProgramList::getProgramName (int32 programIndex, String128 name /*out*/)
 {
 	if (programIndex >= 0 && programIndex < static_cast<int32> (programNames.size ()))
 	{
-		programNames.at (programIndex).copyTo16 (name, 0, 128);
+		memset (name, 0, sizeof (String128));
+		programNames.at (programIndex).copy (name, 128);
 		return kResultTrue;
 	}
 	return kResultFalse;
@@ -606,7 +608,7 @@ Parameter* ProgramList::getParameter ()
 			unitId);
 		for (const auto& programName : programNames)
 		{
-			listParameter->appendString (programName);
+			listParameter->appendString (programName.data ());
 		}
 		parameter = listParameter;
 	}
@@ -684,7 +686,8 @@ tresult ProgramListWithPitchNames::getPitchName (int32 programIndex, int16 midiP
 		PitchNameMap::const_iterator it = pitchNames[programIndex].find (midiPitch);
 		if (it != pitchNames[programIndex].end ())
 		{
-			it->second.copyTo16 (name, 0, 128);
+			memset (name, 0, sizeof (String128));
+			it->second.copy (name, 128);
 			return kResultTrue;
 		}
 	}

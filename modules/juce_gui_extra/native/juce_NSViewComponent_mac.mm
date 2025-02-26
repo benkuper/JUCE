@@ -1,24 +1,33 @@
 /*
   ==============================================================================
 
-   This file is part of the JUCE library.
-   Copyright (c) 2022 - Raw Material Software Limited
+   This file is part of the JUCE framework.
+   Copyright (c) Raw Material Software Limited
 
-   JUCE is an open source library subject to commercial or open-source
+   JUCE is an open source framework subject to commercial or open source
    licensing.
 
-   By using JUCE, you agree to the terms of both the JUCE 7 End-User License
-   Agreement and JUCE Privacy Policy.
+   By downloading, installing, or using the JUCE framework, or combining the
+   JUCE framework with any other source code, object code, content or any other
+   copyrightable work, you agree to the terms of the JUCE End User Licence
+   Agreement, and all incorporated terms including the JUCE Privacy Policy and
+   the JUCE Website Terms of Service, as applicable, which will bind you. If you
+   do not agree to the terms of these agreements, we will not license the JUCE
+   framework to you, and you must discontinue the installation or download
+   process and cease use of the JUCE framework.
 
-   End User License Agreement: www.juce.com/juce-7-licence
-   Privacy Policy: www.juce.com/juce-privacy-policy
+   JUCE End User Licence Agreement: https://juce.com/legal/juce-8-licence/
+   JUCE Privacy Policy: https://juce.com/juce-privacy-policy
+   JUCE Website Terms of Service: https://juce.com/juce-website-terms-of-service/
 
-   Or: You may also use this code under the terms of the GPL v3 (see
-   www.gnu.org/licenses).
+   Or:
 
-   JUCE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES, WHETHER
-   EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR PURPOSE, ARE
-   DISCLAIMED.
+   You may also use this code under the terms of the AGPLv3:
+   https://www.gnu.org/licenses/agpl-3.0.en.html
+
+   THE JUCE FRAMEWORK IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL
+   WARRANTIES, WHETHER EXPRESSED OR IMPLIED, INCLUDING WARRANTY OF
+   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, ARE DISCLAIMED.
 
   ==============================================================================
 */
@@ -26,14 +35,13 @@
 namespace juce
 {
 
-class NSViewAttachment  : public ReferenceCountedObject,
-                          public ComponentMovementWatcher
+class NSViewAttachment final : public ReferenceCountedObject,
+                               public ComponentMovementWatcher
 {
 public:
     NSViewAttachment (NSView* v, Component& comp)
         : ComponentMovementWatcher (&comp),
-          view (v), owner (comp),
-          currentPeer (nullptr)
+          view (v), owner (comp)
     {
         [view retain];
         [view setPostsFrameChangedNotifications: YES];
@@ -67,7 +75,7 @@ public:
             const auto newArea = peer->getAreaCoveredBy (owner);
 
             if (convertToRectInt ([view frame]) != newArea)
-                [view setFrame: makeNSRect (newArea)];
+                [view setFrame: makeCGRect (newArea)];
         }
     }
 
@@ -75,14 +83,13 @@ public:
     {
         auto* peer = owner.getPeer();
 
-        if (currentPeer != peer)
+        if (std::exchange (currentPeer, peer) != peer)
         {
-            currentPeer = peer;
-
             if (peer != nullptr)
             {
                 auto peerView = (NSView*) peer->getNativeHandle();
                 [peerView addSubview: view];
+
                 componentMovedOrResized (false, false);
             }
             else
@@ -110,7 +117,7 @@ public:
 
 private:
     Component& owner;
-    ComponentPeer* currentPeer;
+    ComponentPeer* currentPeer = nullptr;
     NSViewFrameWatcher frameWatcher { view, [this] { owner.childBoundsChanged (nullptr); } };
 
     void removeFromParent()
@@ -125,7 +132,10 @@ private:
 
 //==============================================================================
 NSViewComponent::NSViewComponent() = default;
-NSViewComponent::~NSViewComponent() = default;
+NSViewComponent::~NSViewComponent()
+{
+    AccessibilityHandler::setNativeChildForComponent (*this, nullptr);
+}
 
 void NSViewComponent::setView (void* view)
 {
@@ -139,6 +149,8 @@ void NSViewComponent::setView (void* view)
             attachment = attachViewToComponent (*this, view);
 
         old = nullptr;
+
+        AccessibilityHandler::setNativeChildForComponent (*this, getView());
     }
 }
 
@@ -181,6 +193,11 @@ void NSViewComponent::alphaChanged()
 ReferenceCountedObject* NSViewComponent::attachViewToComponent (Component& comp, void* view)
 {
     return new NSViewAttachment ((NSView*) view, comp);
+}
+
+std::unique_ptr<AccessibilityHandler> NSViewComponent::createAccessibilityHandler()
+{
+    return std::make_unique<AccessibilityHandler> (*this, AccessibilityRole::group);
 }
 
 } // namespace juce

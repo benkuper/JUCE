@@ -1,18 +1,22 @@
 /*
   ==============================================================================
 
-   This file is part of the JUCE examples.
-   Copyright (c) 2022 - Raw Material Software Limited
+   This file is part of the JUCE framework examples.
+   Copyright (c) Raw Material Software Limited
 
    The code included in this file is provided under the terms of the ISC license
    http://www.isc.org/downloads/software-support-policy/isc-license. Permission
-   To use, copy, modify, and/or distribute this software for any purpose with or
+   to use, copy, modify, and/or distribute this software for any purpose with or
    without fee is hereby granted provided that the above copyright notice and
    this permission notice appear in all copies.
 
-   THE SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES,
-   WHETHER EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR
-   PURPOSE, ARE DISCLAIMED.
+   THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+   REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+   AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+   INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+   LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+   OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+   PERFORMANCE OF THIS SOFTWARE.
 
   ==============================================================================
 */
@@ -48,12 +52,12 @@
 
 #include "../Assets/DemoUtilities.h"
 
-class DemoThumbnailComp  : public Component,
-                           public ChangeListener,
-                           public FileDragAndDropTarget,
-                           public ChangeBroadcaster,
-                           private ScrollBar::Listener,
-                           private Timer
+class DemoThumbnailComp final : public Component,
+                                public ChangeListener,
+                                public FileDragAndDropTarget,
+                                public ChangeBroadcaster,
+                                private ScrollBar::Listener,
+                                private Timer
 {
 public:
     DemoThumbnailComp (AudioFormatManager& formatManager,
@@ -251,19 +255,19 @@ private:
 };
 
 //==============================================================================
-class AudioPlaybackDemo  : public Component,
-                          #if (JUCE_ANDROID || JUCE_IOS)
-                           private Button::Listener,
-                          #else
-                           private FileBrowserListener,
-                          #endif
-                           private ChangeListener
+class AudioPlaybackDemo final : public Component,
+                               #if (JUCE_ANDROID || JUCE_IOS)
+                                private Button::Listener,
+                               #else
+                                private FileBrowserListener,
+                               #endif
+                                private ChangeListener
 {
 public:
     AudioPlaybackDemo()
     {
         addAndMakeVisible (zoomLabel);
-        zoomLabel.setFont (Font (15.00f, Font::plain));
+        zoomLabel.setFont (FontOptions (15.00f, Font::plain));
         zoomLabel.setJustificationType (Justification::centredRight);
         zoomLabel.setEditable (false, false, false);
         zoomLabel.setColour (TextEditor::textColourId, Colours::black);
@@ -285,7 +289,7 @@ public:
         fileTreeComp.addListener (this);
 
         addAndMakeVisible (explanation);
-        explanation.setFont (Font (14.00f, Font::plain));
+        explanation.setFont (FontOptions (14.00f, Font::plain));
         explanation.setJustificationType (Justification::bottomRight);
         explanation.setEditable (false, false, false);
         explanation.setColour (TextEditor::textColourId, Colours::black);

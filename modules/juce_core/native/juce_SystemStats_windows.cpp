@@ -1,21 +1,33 @@
 /*
   ==============================================================================
 
-   This file is part of the JUCE library.
-   Copyright (c) 2022 - Raw Material Software Limited
+   This file is part of the JUCE framework.
+   Copyright (c) Raw Material Software Limited
 
-   JUCE is an open source library subject to commercial or open-source
+   JUCE is an open source framework subject to commercial or open source
    licensing.
 
-   The code included in this file is provided under the terms of the ISC license
-   http://www.isc.org/downloads/software-support-policy/isc-license. Permission
-   To use, copy, modify, and/or distribute this software for any purpose with or
-   without fee is hereby granted provided that the above copyright notice and
-   this permission notice appear in all copies.
+   By downloading, installing, or using the JUCE framework, or combining the
+   JUCE framework with any other source code, object code, content or any other
+   copyrightable work, you agree to the terms of the JUCE End User Licence
+   Agreement, and all incorporated terms including the JUCE Privacy Policy and
+   the JUCE Website Terms of Service, as applicable, which will bind you. If you
+   do not agree to the terms of these agreements, we will not license the JUCE
+   framework to you, and you must discontinue the installation or download
+   process and cease use of the JUCE framework.
 
-   JUCE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES, WHETHER
-   EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR PURPOSE, ARE
-   DISCLAIMED.
+   JUCE End User Licence Agreement: https://juce.com/legal/juce-8-licence/
+   JUCE Privacy Policy: https://juce.com/juce-privacy-policy
+   JUCE Website Terms of Service: https://juce.com/juce-website-terms-of-service/
+
+   Or:
+
+   You may also use this code under the terms of the AGPLv3:
+   https://www.gnu.org/licenses/agpl-3.0.en.html
+
+   THE JUCE FRAMEWORK IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL
+   WARRANTIES, WHETHER EXPRESSED OR IMPLIED, INCLUDING WARRANTY OF
+   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, ARE DISCLAIMED.
 
   ==============================================================================
 */
@@ -36,13 +48,6 @@ void Logger::outputDebugString (const String& text)
 
 static int findNumberOfPhysicalCores() noexcept
 {
-   #if JUCE_MINGW
-    // Not implemented in MinGW
-    jassertfalse;
-
-    return 1;
-   #else
-
     DWORD bufferSize = 0;
     GetLogicalProcessorInformation (nullptr, &bufferSize);
 
@@ -66,8 +71,6 @@ static int findNumberOfPhysicalCores() noexcept
     {
         return info.Relationship == RelationProcessorCore;
     });
-
-   #endif // JUCE_MINGW
 }
 
 //==============================================================================
@@ -77,7 +80,7 @@ static int findNumberOfPhysicalCores() noexcept
   #pragma intrinsic (__rdtsc)
  #endif
 
- #if JUCE_MINGW || JUCE_CLANG
+ #if JUCE_CLANG
 static void callCPUID (int result[4], uint32 type)
 {
   uint32 la = (uint32) result[0], lb = (uint32) result[1],
@@ -241,66 +244,34 @@ static DebugFlagsInitialiser debugFlagsInitialiser;
 #endif
 
 //==============================================================================
-#if JUCE_MINGW
- static uint64 getWindowsVersion()
- {
-     auto filename = _T("kernel32.dll");
-     DWORD handle = 0;
+RTL_OSVERSIONINFOW getWindowsVersionInfo();
+RTL_OSVERSIONINFOW getWindowsVersionInfo()
+{
+    RTL_OSVERSIONINFOW versionInfo = {};
 
-     if (auto size = GetFileVersionInfoSize (filename, &handle))
-     {
-         HeapBlock<char> data (size);
+    if (auto* moduleHandle = ::GetModuleHandleW (L"ntdll.dll"))
+    {
+        using RtlGetVersion = LONG (WINAPI*) (PRTL_OSVERSIONINFOW);
 
-         if (GetFileVersionInfo (filename, handle, size, data))
-         {
-             VS_FIXEDFILEINFO* info = nullptr;
-             UINT verSize = 0;
+        if (auto* rtlGetVersion = (RtlGetVersion) ::GetProcAddress (moduleHandle, "RtlGetVersion"))
+        {
+            versionInfo.dwOSVersionInfoSize = sizeof (versionInfo);
+            LONG STATUS_SUCCESS = 0;
 
-             if (VerQueryValue (data, (LPCTSTR) _T("\\"), (void**) &info, &verSize))
-                 if (size > 0 && info != nullptr && info->dwSignature == 0xfeef04bd)
-                     return ((uint64) info->dwFileVersionMS << 32) | (uint64) info->dwFileVersionLS;
-         }
-     }
+            if (rtlGetVersion (&versionInfo) != STATUS_SUCCESS)
+                versionInfo = {};
+        }
+    }
 
-     return 0;
- }
-#else
- RTL_OSVERSIONINFOW getWindowsVersionInfo();
- RTL_OSVERSIONINFOW getWindowsVersionInfo()
- {
-     RTL_OSVERSIONINFOW versionInfo = {};
-
-     if (auto* moduleHandle = ::GetModuleHandleW (L"ntdll.dll"))
-     {
-         using RtlGetVersion = LONG (WINAPI*) (PRTL_OSVERSIONINFOW);
-
-         if (auto* rtlGetVersion = (RtlGetVersion) ::GetProcAddress (moduleHandle, "RtlGetVersion"))
-         {
-             versionInfo.dwOSVersionInfoSize = sizeof (versionInfo);
-             LONG STATUS_SUCCESS = 0;
-
-             if (rtlGetVersion (&versionInfo) != STATUS_SUCCESS)
-                 versionInfo = {};
-         }
-     }
-
-     return versionInfo;
- }
-#endif
+    return versionInfo;
+}
 
 SystemStats::OperatingSystemType SystemStats::getOperatingSystemType()
 {
-   #if JUCE_MINGW
-    const auto v = getWindowsVersion();
-    const auto major = (v >> 48) & 0xffff;
-    const auto minor = (v >> 32) & 0xffff;
-    const auto build = (v >> 16) & 0xffff;
-   #else
     const auto versionInfo = getWindowsVersionInfo();
     const auto major = versionInfo.dwMajorVersion;
     const auto minor = versionInfo.dwMinorVersion;
     const auto build = versionInfo.dwBuildNumber;
-   #endif
 
     jassert (major <= 10); // need to add support for new version!
 
@@ -319,44 +290,19 @@ SystemStats::OperatingSystemType SystemStats::getOperatingSystemType()
 
 String SystemStats::getOperatingSystemName()
 {
-    const char* name = "Unknown OS";
+    const auto type = getOperatingSystemType();
 
-    switch (getOperatingSystemType())
-    {
-        case Windows11:         name = "Windows 11";        break;
-        case Windows10:         name = "Windows 10";        break;
-        case Windows8_1:        name = "Windows 8.1";       break;
-        case Windows8_0:        name = "Windows 8.0";       break;
-        case Windows7:          name = "Windows 7";         break;
-        case WinVista:          name = "Windows Vista";     break;
-        case WinXP:             name = "Windows XP";        break;
-        case Win2000:           name = "Windows 2000";      break;
+    if (type == Windows11)      return "Windows 11";
+    if (type == Windows10)      return "Windows 10";
+    if (type == Windows8_1)     return "Windows 8.1";
+    if (type == Windows8_0)     return "Windows 8.0";
+    if (type == Windows7)       return "Windows 7";
+    if (type == WinVista)       return "Windows Vista";
+    if (type == WinXP)          return "Windows XP";
+    if (type == Win2000)        return "Windows 2000";
 
-        case MacOSX:            JUCE_FALLTHROUGH
-        case Windows:           JUCE_FALLTHROUGH
-        case Linux:             JUCE_FALLTHROUGH
-        case Android:           JUCE_FALLTHROUGH
-        case iOS:               JUCE_FALLTHROUGH
-
-        case MacOSX_10_7:       JUCE_FALLTHROUGH
-        case MacOSX_10_8:       JUCE_FALLTHROUGH
-        case MacOSX_10_9:       JUCE_FALLTHROUGH
-        case MacOSX_10_10:      JUCE_FALLTHROUGH
-        case MacOSX_10_11:      JUCE_FALLTHROUGH
-        case MacOSX_10_12:      JUCE_FALLTHROUGH
-        case MacOSX_10_13:      JUCE_FALLTHROUGH
-        case MacOSX_10_14:      JUCE_FALLTHROUGH
-        case MacOSX_10_15:      JUCE_FALLTHROUGH
-        case MacOS_11:          JUCE_FALLTHROUGH
-        case MacOS_12:          JUCE_FALLTHROUGH
-        case MacOS_13:          JUCE_FALLTHROUGH
-
-        case UnknownOS:         JUCE_FALLTHROUGH
-        case WASM:              JUCE_FALLTHROUGH
-        default:                jassertfalse; break; // !! new type of OS?
-    }
-
-    return name;
+    jassertfalse;
+    return "Unknown OS";
 }
 
 String SystemStats::getDeviceDescription()
@@ -499,7 +445,7 @@ static int64 juce_getClockCycleCounter() noexcept
   #elif JUCE_ARM
    #if defined (_M_ARM)
     return __rdpmccntr64();
-   #elif defined (_M_ARM64)
+   #elif defined (_M_ARM64) || defined (_M_ARM64EC)
     return _ReadStatusReg (ARM64_PMCCNTR_EL0);
    #else
     #error Unknown arm architecture
@@ -721,45 +667,83 @@ String SystemStats::getUniqueDeviceID()
         };
         #pragma pack (pop)
 
+        if (smbiosBuffer->size() < sizeof (RawSMBIOSData))
+        {
+            // Malformed buffer; not enough room for RawSMBIOSData instance
+            jassertfalse;
+            return {};
+        }
+
         String uuid;
         const auto* asRawSMBIOSData = unalignedPointerCast<const RawSMBIOSData*> (smbiosBuffer->data());
+
+        if (smbiosBuffer->size() < sizeof (RawSMBIOSData) + static_cast<size_t> (asRawSMBIOSData->length))
+        {
+            // Malformed buffer; declared length is longer than the buffer we were given
+            jassertfalse;
+            return {};
+        }
+
         Span<const std::byte> content (smbiosBuffer->data() + sizeof (RawSMBIOSData), asRawSMBIOSData->length);
 
         while (! content.empty())
         {
-            const auto* header      = unalignedPointerCast<const SMBIOSHeader*> (content.data());
-            const auto* stringTable = unalignedPointerCast<const char*> (content.data() + header->length);
-            std::vector<const char*> strings;
+            if (content.size() < sizeof (SMBIOSHeader))
+            {
+                // Malformed buffer; not enough room for header
+                jassertfalse;
+                break;
+            }
+
+            const auto* header = unalignedPointerCast<const SMBIOSHeader*> (content.data());
+
+            if (content.size() < header->length)
+            {
+                // Malformed buffer; declared length is longer than the buffer we were given
+                jassertfalse;
+                break;
+            }
+
+            std::vector<std::string_view> strings;
 
             // Each table comprises a struct and a varying number of null terminated
             // strings. The string section is delimited by a pair of null terminators.
             // Some fields in the header are indices into the string table.
 
-            const auto sizeofStringTable = [stringTable, &strings, &content]
+            const auto endOfStringTable = [&header, &strings, &content]
             {
-                size_t tableLen = 0;
+                const auto* dataTable = unalignedPointerCast<const char*> (content.data());
+                size_t stringOffset = header->length;
 
-                while (tableLen < content.size())
+                while (stringOffset < content.size())
                 {
-                    const auto* str = stringTable + tableLen;
-                    const auto n = strlen (str);
+                    const auto* str = dataTable + stringOffset;
+                    const auto maxLength = content.size() - stringOffset;
+                    const auto n = strnlen (str, maxLength);
 
                     if (n == 0)
                         break;
 
-                    strings.push_back (str);
-                    tableLen += n + 1;
+                    strings.emplace_back (str, n);
+                    stringOffset += std::min (n + 1, maxLength);
                 }
 
-                return jmax (tableLen, (size_t) 1) + 1;
+                const auto lengthAfterHeader = jmax ((size_t) header->length + 2, stringOffset + 1);
+                return jmin (lengthAfterHeader, content.size());
             }();
 
-            const auto stringFromOffset = [&content, &strings = std::as_const (strings)] (size_t byteOffset)
+            const auto stringFromOffset = [&content, &strings] (size_t byteOffset) -> String
             {
-                if (const auto index = std::to_integer<size_t> (content[byteOffset]); 0 < index && index <= strings.size())
-                    return strings[index - 1];
+                if (! isPositiveAndBelow (byteOffset, content.size()))
+                    return std::string{};
 
-                return "";
+                const auto index = std::to_integer<size_t> (content[byteOffset]);
+
+                if (index <= 0 || strings.size() < index)
+                    return std::string{};
+
+                const auto view = strings[index - 1];
+                return std::string { view };
             };
 
             enum
@@ -793,10 +777,14 @@ String SystemStats::getUniqueDeviceID()
                     uuid += "\n";
 
                     char hexBuf[(16 * 2) + 1]{};
-                    const auto* src = content.data() + systemUUID;
 
-                    for (auto i = 0; i != 16; ++i)
-                        snprintf (hexBuf + 2 * i, 3, "%02hhX", std::to_integer<uint8_t> (src[i]));
+                    if (systemUUID + 16 < content.size())
+                    {
+                        const auto* src = content.data() + systemUUID;
+
+                        for (auto i = 0; i != 16; ++i)
+                            snprintf (hexBuf + 2 * i, 3, "%02hhX", std::to_integer<uint8_t> (src[i]));
+                    }
 
                     uuid += hexBuf;
                     uuid += "\n";
@@ -826,10 +814,9 @@ String SystemStats::getUniqueDeviceID()
                     uuid += stringFromOffset (processorPartNumber);
                     uuid += "\n";
                     break;
-                }
+            }
 
-            const auto increment = header->length + sizeofStringTable;
-            content = Span (content.data() + increment, content.size() - increment);
+            content = Span (content.data() + endOfStringTable, content.size() - endOfStringTable);
         }
 
         return String (uuid.hashCode64());

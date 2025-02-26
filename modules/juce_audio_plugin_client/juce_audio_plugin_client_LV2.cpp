@@ -1,24 +1,33 @@
 /*
   ==============================================================================
 
-   This file is part of the JUCE library.
-   Copyright (c) 2022 - Raw Material Software Limited
+   This file is part of the JUCE framework.
+   Copyright (c) Raw Material Software Limited
 
-   JUCE is an open source library subject to commercial or open-source
+   JUCE is an open source framework subject to commercial or open source
    licensing.
 
-   By using JUCE, you agree to the terms of both the JUCE 7 End-User License
-   Agreement and JUCE Privacy Policy.
+   By downloading, installing, or using the JUCE framework, or combining the
+   JUCE framework with any other source code, object code, content or any other
+   copyrightable work, you agree to the terms of the JUCE End User Licence
+   Agreement, and all incorporated terms including the JUCE Privacy Policy and
+   the JUCE Website Terms of Service, as applicable, which will bind you. If you
+   do not agree to the terms of these agreements, we will not license the JUCE
+   framework to you, and you must discontinue the installation or download
+   process and cease use of the JUCE framework.
 
-   End User License Agreement: www.juce.com/juce-7-licence
-   Privacy Policy: www.juce.com/juce-privacy-policy
+   JUCE End User Licence Agreement: https://juce.com/legal/juce-8-licence/
+   JUCE Privacy Policy: https://juce.com/juce-privacy-policy
+   JUCE Website Terms of Service: https://juce.com/juce-website-terms-of-service/
 
-   Or: You may also use this code under the terms of the GPL v3 (see
-   www.gnu.org/licenses).
+   Or:
 
-   JUCE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES, WHETHER
-   EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR PURPOSE, ARE
-   DISCLAIMED.
+   You may also use this code under the terms of the AGPLv3:
+   https://www.gnu.org/licenses/agpl-3.0.en.html
+
+   THE JUCE FRAMEWORK IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL
+   WARRANTIES, WHETHER EXPRESSED OR IMPLIED, INCLUDING WARRANTY OF
+   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, ARE DISCLAIMED.
 
   ==============================================================================
 */
@@ -56,10 +65,26 @@
  #error "You need to define the JucePlugin_LV2URI value! If you're using the Projucer/CMake, the definition will be written into JuceLV2Defines.h automatically."
 #endif
 
-namespace juce
+namespace juce::lv2_client
 {
-namespace lv2_client
+
+constexpr bool startsWithValidScheme (const std::string_view str)
 {
+    constexpr const char* prefixes[] { "http://", "https://", "urn:" };
+
+    for (const std::string_view prefix : prefixes)
+        if (prefix == str.substr (0, prefix.size()))
+            return true;
+
+    return false;
+}
+
+// If your LV2 plugin fails to build here, it may be because you haven't explicitly set an LV2 URI,
+// or you've requested a malformed URI.
+// If you're using the Projucer, update the value of the "LV2 URI" field in your project settings.
+// If you're using CMake, specify a valid LV2URI argument to juce_add_plugin.
+static_assert (startsWithValidScheme (JucePlugin_LV2URI),
+               "Your configured LV2 URI must include a leading scheme specifier.");
 
 constexpr auto uriSeparator = ":";
 const auto JucePluginLV2UriUi      = String (JucePlugin_LV2URI) + uriSeparator + "UI";
@@ -98,7 +123,7 @@ static const LV2_Options_Option* findMatchingOption (const LV2_Options_Option* o
     return nullptr;
 }
 
-class ParameterStorage : private AudioProcessorListener
+class ParameterStorage final : private AudioProcessorListener
 {
 public:
     ParameterStorage (AudioProcessor& proc, LV2_URID_Map map)
@@ -235,10 +260,9 @@ private:
     const std::map<LV2_URID, size_t> uridToIndexMap = [&]
     {
         std::map<LV2_URID, size_t> result;
-        size_t index = 0;
 
-        for (const auto& urid : indexToUridMap)
-            result.emplace (urid, index++);
+        for (const auto [index, urid] : enumerate (indexToUridMap))
+            result.emplace (urid, index);
 
         return result;
     }();
@@ -274,7 +298,7 @@ struct PortIndices
 };
 
 //==============================================================================
-class PlayHead : public AudioPlayHead
+class PlayHead final : public AudioPlayHead
 {
 public:
     PlayHead (LV2_URID_Map mapFeatureIn, double sampleRateIn)
@@ -472,7 +496,7 @@ private:
     JUCE_LEAK_DETECTOR (Ports)
 };
 
-class LV2PluginInstance : private AudioProcessorListener
+class LV2PluginInstance final : private AudioProcessorListener
 {
 public:
     LV2PluginInstance (double sampleRate,
@@ -1037,18 +1061,21 @@ private:
 
             os << "\trdfs:range atom:Float ;\n";
 
-            if (auto* rangedParam = dynamic_cast<const RangedAudioParameter*> (&param))
+            const auto [defaultValue, min, max] = [&]
             {
-                os << "\tlv2:default " << rangedParam->convertFrom0to1 (rangedParam->getDefaultValue()) << " ;\n"
-                      "\tlv2:minimum " << rangedParam->getNormalisableRange().start << " ;\n"
-                      "\tlv2:maximum " << rangedParam->getNormalisableRange().end;
-            }
-            else
-            {
-                os << "\tlv2:default " << param.getDefaultValue() << " ;\n"
-                      "\tlv2:minimum 0.0 ;\n"
-                      "\tlv2:maximum 1.0";
-            }
+                if (auto* rangedParam = dynamic_cast<const RangedAudioParameter*> (&param))
+                {
+                    return std::tuple (rangedParam->convertFrom0to1 (rangedParam->getDefaultValue()),
+                                       rangedParam->getNormalisableRange().start,
+                                       rangedParam->getNormalisableRange().end);
+                }
+
+                return std::tuple (param.getDefaultValue(), 0.0f, 1.0f);
+            }();
+
+            os << "\tlv2:default " << defaultValue << " ;\n"
+                  "\tlv2:minimum " << min << " ;\n"
+                  "\tlv2:maximum " << max;
 
             // Avoid writing out loads of scale points for parameters with lots of steps
             constexpr auto stepLimit = 1000;
@@ -1060,15 +1087,14 @@ private:
                       "\tlv2:portProperty lv2:enumeration " << (param.isBoolean() ? ", lv2:toggled " : "") << ";\n"
                       "\tlv2:scalePoint ";
 
-                const auto maxIndex = numSteps - 1;
+                const auto strings = param.getAllValueStrings();
 
-                for (int i = 0; i < numSteps; ++i)
+                for (const auto [counter, string] : enumerate (strings))
                 {
-                    const auto value = (float) i / (float) maxIndex;
-                    const auto text = param.getText (value, 1024);
+                    const auto value = jmap ((float) counter, 0.0f, (float) numSteps - 1.0f, min, max);
 
-                    os << (i != 0 ? ", " : "") << "[\n"
-                          "\t\trdfs:label \"" << text << "\" ;\n"
+                    os << (counter != 0 ? ", " : "") << "[\n"
+                          "\t\trdfs:label \"" << string << "\" ;\n"
                           "\t\trdf:value " << value << " ;\n"
                           "\t]";
                 }
@@ -1265,8 +1291,8 @@ private:
               "\t\tatom:bufferType atom:Sequence ;\n"
               "\t\tatom:supports\n";
 
-       #if ! JucePlugin_IsSynth && ! JucePlugin_IsMidiEffect
-        if (proc.acceptsMidi())
+       #if ! JucePlugin_IsSynth
+        if (proc.acceptsMidi() || proc.isMidiEffect())
        #endif
             os << "\t\t\tmidi:MidiEvent ,\n";
 
@@ -1282,9 +1308,7 @@ private:
               "\t\tatom:bufferType atom:Sequence ;\n"
               "\t\tatom:supports\n";
 
-       #if ! JucePlugin_IsMidiEffect
-        if (proc.producesMidi())
-       #endif
+        if (proc.producesMidi() || proc.isMidiEffect())
             os << "\t\t\tmidi:MidiEvent ,\n";
 
         os << "\t\t\tpatch:Message ;\n"
@@ -1496,8 +1520,8 @@ static Optional<float> findScaleFactor (const LV2_URID_Map* symap, const LV2_Opt
     return parser.parseNumericOption<float> (scaleFactorOption);
 }
 
-class LV2UIInstance : private Component,
-                      private ComponentListener
+class LV2UIInstance final : private Component,
+                            private ComponentListener
 {
 public:
     LV2UIInstance (const char*,
@@ -1809,7 +1833,6 @@ LV2_SYMBOL_EXPORT const LV2UI_Descriptor* lv2ui_descriptor (uint32_t index)
     return &descriptor;
 }
 
-}
-}
+} // namespace juce::lv2_client
 
 #endif

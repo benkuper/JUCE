@@ -1,24 +1,33 @@
 /*
   ==============================================================================
 
-   This file is part of the JUCE library.
-   Copyright (c) 2022 - Raw Material Software Limited
+   This file is part of the JUCE framework.
+   Copyright (c) Raw Material Software Limited
 
-   JUCE is an open source library subject to commercial or open-source
+   JUCE is an open source framework subject to commercial or open source
    licensing.
 
-   By using JUCE, you agree to the terms of both the JUCE 7 End-User License
-   Agreement and JUCE Privacy Policy.
+   By downloading, installing, or using the JUCE framework, or combining the
+   JUCE framework with any other source code, object code, content or any other
+   copyrightable work, you agree to the terms of the JUCE End User Licence
+   Agreement, and all incorporated terms including the JUCE Privacy Policy and
+   the JUCE Website Terms of Service, as applicable, which will bind you. If you
+   do not agree to the terms of these agreements, we will not license the JUCE
+   framework to you, and you must discontinue the installation or download
+   process and cease use of the JUCE framework.
 
-   End User License Agreement: www.juce.com/juce-7-licence
-   Privacy Policy: www.juce.com/juce-privacy-policy
+   JUCE End User Licence Agreement: https://juce.com/legal/juce-8-licence/
+   JUCE Privacy Policy: https://juce.com/juce-privacy-policy
+   JUCE Website Terms of Service: https://juce.com/juce-website-terms-of-service/
 
-   Or: You may also use this code under the terms of the GPL v3 (see
-   www.gnu.org/licenses).
+   Or:
 
-   JUCE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES, WHETHER
-   EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR PURPOSE, ARE
-   DISCLAIMED.
+   You may also use this code under the terms of the AGPLv3:
+   https://www.gnu.org/licenses/agpl-3.0.en.html
+
+   THE JUCE FRAMEWORK IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL
+   WARRANTIES, WHETHER EXPRESSED OR IMPLIED, INCLUDING WARRANTY OF
+   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, ARE DISCLAIMED.
 
   ==============================================================================
 */
@@ -100,8 +109,8 @@ public:
     {
         const auto toReturn = result.extract (obj);
 
-        if (result.isOk() && addRefFn != nullptr && *obj != nullptr)
-            addRefFn (*obj);
+        if (result.isOk() && *obj != nullptr)
+            NullCheckedInvocation::invoke (addRefFn, *obj);
 
         return toReturn;
     }
@@ -241,6 +250,15 @@ static std::optional<Steinberg::Vst::Speaker> getSpeakerType (const AudioChannel
         case AudioChannelSet::ambisonicACN13:    return Steinberg::Vst::kSpeakerACN13;
         case AudioChannelSet::ambisonicACN14:    return Steinberg::Vst::kSpeakerACN14;
         case AudioChannelSet::ambisonicACN15:    return Steinberg::Vst::kSpeakerACN15;
+        case AudioChannelSet::ambisonicACN16:    return Steinberg::Vst::kSpeakerACN16;
+        case AudioChannelSet::ambisonicACN17:    return Steinberg::Vst::kSpeakerACN17;
+        case AudioChannelSet::ambisonicACN18:    return Steinberg::Vst::kSpeakerACN18;
+        case AudioChannelSet::ambisonicACN19:    return Steinberg::Vst::kSpeakerACN19;
+        case AudioChannelSet::ambisonicACN20:    return Steinberg::Vst::kSpeakerACN20;
+        case AudioChannelSet::ambisonicACN21:    return Steinberg::Vst::kSpeakerACN21;
+        case AudioChannelSet::ambisonicACN22:    return Steinberg::Vst::kSpeakerACN22;
+        case AudioChannelSet::ambisonicACN23:    return Steinberg::Vst::kSpeakerACN23;
+        case AudioChannelSet::ambisonicACN24:    return Steinberg::Vst::kSpeakerACN24;
         case AudioChannelSet::topSideLeft:       return Steinberg::Vst::kSpeakerTsl;
         case AudioChannelSet::topSideRight:      return Steinberg::Vst::kSpeakerTsr;
         case AudioChannelSet::bottomFrontLeft:   return Steinberg::Vst::kSpeakerBfl;
@@ -251,18 +269,11 @@ static std::optional<Steinberg::Vst::Speaker> getSpeakerType (const AudioChannel
         case AudioChannelSet::bottomRearLeft:    return Steinberg::Vst::kSpeakerBrl;
         case AudioChannelSet::bottomRearCentre:  return Steinberg::Vst::kSpeakerBrc;
         case AudioChannelSet::bottomRearRight:   return Steinberg::Vst::kSpeakerBrr;
+        case AudioChannelSet::wideLeft:          return Steinberg::Vst::kSpeakerLw;
+        case AudioChannelSet::wideRight:         return Steinberg::Vst::kSpeakerRw;
 
         case AudioChannelSet::discreteChannel0:  return Steinberg::Vst::kSpeakerM;
 
-        case AudioChannelSet::ambisonicACN16:
-        case AudioChannelSet::ambisonicACN17:
-        case AudioChannelSet::ambisonicACN18:
-        case AudioChannelSet::ambisonicACN19:
-        case AudioChannelSet::ambisonicACN20:
-        case AudioChannelSet::ambisonicACN21:
-        case AudioChannelSet::ambisonicACN22:
-        case AudioChannelSet::ambisonicACN23:
-        case AudioChannelSet::ambisonicACN24:
         case AudioChannelSet::ambisonicACN25:
         case AudioChannelSet::ambisonicACN26:
         case AudioChannelSet::ambisonicACN27:
@@ -302,8 +313,6 @@ static std::optional<Steinberg::Vst::Speaker> getSpeakerType (const AudioChannel
         case AudioChannelSet::ambisonicACN61:
         case AudioChannelSet::ambisonicACN62:
         case AudioChannelSet::ambisonicACN63:
-        case AudioChannelSet::wideLeft:
-        case AudioChannelSet::wideRight:
         case AudioChannelSet::unknown:
             break;
     }
@@ -351,6 +360,15 @@ static std::optional<AudioChannelSet::ChannelType> getChannelType (Steinberg::Vs
         case Steinberg::Vst::kSpeakerACN13: return AudioChannelSet::ambisonicACN13;
         case Steinberg::Vst::kSpeakerACN14: return AudioChannelSet::ambisonicACN14;
         case Steinberg::Vst::kSpeakerACN15: return AudioChannelSet::ambisonicACN15;
+        case Steinberg::Vst::kSpeakerACN16: return AudioChannelSet::ambisonicACN16;
+        case Steinberg::Vst::kSpeakerACN17: return AudioChannelSet::ambisonicACN17;
+        case Steinberg::Vst::kSpeakerACN18: return AudioChannelSet::ambisonicACN18;
+        case Steinberg::Vst::kSpeakerACN19: return AudioChannelSet::ambisonicACN19;
+        case Steinberg::Vst::kSpeakerACN20: return AudioChannelSet::ambisonicACN20;
+        case Steinberg::Vst::kSpeakerACN21: return AudioChannelSet::ambisonicACN21;
+        case Steinberg::Vst::kSpeakerACN22: return AudioChannelSet::ambisonicACN22;
+        case Steinberg::Vst::kSpeakerACN23: return AudioChannelSet::ambisonicACN23;
+        case Steinberg::Vst::kSpeakerACN24: return AudioChannelSet::ambisonicACN24;
         case Steinberg::Vst::kSpeakerTsl:   return AudioChannelSet::topSideLeft;
         case Steinberg::Vst::kSpeakerTsr:   return AudioChannelSet::topSideRight;
         case Steinberg::Vst::kSpeakerLcs:   return AudioChannelSet::leftSurroundRear;
@@ -365,6 +383,8 @@ static std::optional<AudioChannelSet::ChannelType> getChannelType (Steinberg::Vs
         case Steinberg::Vst::kSpeakerBrl:   return AudioChannelSet::bottomRearLeft;
         case Steinberg::Vst::kSpeakerBrc:   return AudioChannelSet::bottomRearCentre;
         case Steinberg::Vst::kSpeakerBrr:   return AudioChannelSet::bottomRearRight;
+        case Steinberg::Vst::kSpeakerLw:    return AudioChannelSet::wideLeft;
+        case Steinberg::Vst::kSpeakerRw:    return AudioChannelSet::wideRight;
     }
 
     return {};
@@ -415,11 +435,15 @@ namespace detail
         { k71_6,                        { X::left, X::right, X::centre, X::LFE, X::leftSurroundRear, X::rightSurroundRear, X::leftSurroundSide, X::rightSurroundSide, X::topFrontLeft, X::topFrontRight, X::topRearLeft, X::topRearRight, X::topSideLeft, X::topSideRight } },
         { k70_6,                        { X::left, X::right, X::centre,         X::leftSurroundRear, X::rightSurroundRear, X::leftSurroundSide, X::rightSurroundSide, X::topFrontLeft, X::topFrontRight, X::topRearLeft, X::topRearRight, X::topSideLeft, X::topSideRight } },
 
-        // The VST3 layout uses 'left/right' and 'left-of-center/right-of-center', but the JUCE layout uses 'left/right' and 'wide-left/wide-right'.
-        { k91_4,                        { X::wideLeft, X::wideRight, X::centre, X::LFE, X::leftSurroundRear, X::rightSurroundRear, X::left, X::right, X::leftSurroundSide, X::rightSurroundSide, X::topFrontLeft, X::topFrontRight, X::topRearLeft, X::topRearRight } },
-        { k90_4,                        { X::wideLeft, X::wideRight, X::centre,         X::leftSurroundRear, X::rightSurroundRear, X::left, X::right, X::leftSurroundSide, X::rightSurroundSide, X::topFrontLeft, X::topFrontRight, X::topRearLeft, X::topRearRight } },
-        { k91_6,                        { X::wideLeft, X::wideRight, X::centre, X::LFE, X::leftSurroundRear, X::rightSurroundRear, X::left, X::right, X::leftSurroundSide, X::rightSurroundSide, X::topFrontLeft, X::topFrontRight, X::topRearLeft, X::topRearRight, X::topSideLeft, X::topSideRight } },
-        { k90_6,                        { X::wideLeft, X::wideRight, X::centre,         X::leftSurroundRear, X::rightSurroundRear, X::left, X::right, X::leftSurroundSide, X::rightSurroundSide, X::topFrontLeft, X::topFrontRight, X::topRearLeft, X::topRearRight, X::topSideLeft, X::topSideRight } },
+        { k90_4_W,                      { X::left, X::right, X::centre,         X::leftSurroundRear, X::rightSurroundRear, X::leftSurroundSide, X::rightSurroundSide, X::topFrontLeft, X::topFrontRight, X::topRearLeft, X::topRearRight, X::wideLeft, X::wideRight } },
+        { k91_4_W,                      { X::left, X::right, X::centre, X::LFE, X::leftSurroundRear, X::rightSurroundRear, X::leftSurroundSide, X::rightSurroundSide, X::topFrontLeft, X::topFrontRight, X::topRearLeft, X::topRearRight, X::wideLeft, X::wideRight } },
+        { k90_6_W,                      { X::left, X::right, X::centre,         X::leftSurroundRear, X::rightSurroundRear, X::leftSurroundSide, X::rightSurroundSide, X::topFrontLeft, X::topFrontRight, X::topRearLeft, X::topRearRight, X::topSideLeft, X::topSideRight, X::wideLeft, X::wideRight } },
+        { k91_6_W,                      { X::left, X::right, X::centre, X::LFE, X::leftSurroundRear, X::rightSurroundRear, X::leftSurroundSide, X::rightSurroundSide, X::topFrontLeft, X::topFrontRight, X::topRearLeft, X::topRearRight, X::topSideLeft, X::topSideRight, X::wideLeft, X::wideRight } },
+
+        { k90_4,                        { X::left, X::right, X::centre,         X::leftSurround, X::rightSurround, X::leftCentre, X::rightCentre, X::leftSurroundSide, X::rightSurroundSide, X::topFrontLeft, X::topFrontRight, X::topRearLeft, X::topRearRight } },
+        { k91_4,                        { X::left, X::right, X::centre, X::LFE, X::leftSurround, X::rightSurround, X::leftCentre, X::rightCentre, X::leftSurroundSide, X::rightSurroundSide, X::topFrontLeft, X::topFrontRight, X::topRearLeft, X::topRearRight } },
+        { k90_6,                        { X::left, X::right, X::centre,         X::leftSurround, X::rightSurround, X::leftCentre, X::rightCentre, X::leftSurroundSide, X::rightSurroundSide, X::topFrontLeft, X::topFrontRight, X::topRearLeft, X::topRearRight, X::topSideLeft, X::topSideRight } },
+        { k91_6,                        { X::left, X::right, X::centre, X::LFE, X::leftSurround, X::rightSurround, X::leftCentre, X::rightCentre, X::leftSurroundSide, X::rightSurroundSide, X::topFrontLeft, X::topFrontRight, X::topRearLeft, X::topRearRight, X::topSideLeft, X::topSideRight } },
     };
 
    #if JUCE_DEBUG
@@ -478,6 +502,24 @@ static std::optional<Array<AudioChannelSet::ChannelType>> getSpeakerOrder (Stein
     return {};
 }
 
+struct Ambisonics
+{
+    struct Mapping
+    {
+        Steinberg::Vst::SpeakerArrangement arrangement;
+        AudioChannelSet channelSet;
+    };
+
+    inline static const Mapping mappings[]
+    {
+        { Steinberg::Vst::SpeakerArr::kAmbi5thOrderACN, AudioChannelSet::ambisonic (5) },
+        { Steinberg::Vst::SpeakerArr::kAmbi6thOrderACN, AudioChannelSet::ambisonic (6) },
+        { Steinberg::Vst::SpeakerArr::kAmbi7thOrderACN, AudioChannelSet::ambisonic (7) },
+    };
+
+    Ambisonics() = delete;
+};
+
 static std::optional<Steinberg::Vst::SpeakerArrangement> getVst3SpeakerArrangement (const AudioChannelSet& channels) noexcept
 {
     using namespace Steinberg::Vst::SpeakerArr;
@@ -485,6 +527,10 @@ static std::optional<Steinberg::Vst::SpeakerArrangement> getVst3SpeakerArrangeme
    #if JUCE_DEBUG
     std::call_once (detail::layoutTableCheckedFlag, [] { jassert (isLayoutTableValid()); });
    #endif
+
+    for (const auto& mapping : Ambisonics::mappings)
+        if (channels == mapping.channelSet)
+            return mapping.arrangement;
 
     const auto channelSetMatches = [&channels] (const auto& layoutPair)
     {
@@ -510,6 +556,10 @@ static std::optional<Steinberg::Vst::SpeakerArrangement> getVst3SpeakerArrangeme
 inline std::optional<AudioChannelSet> getChannelSetForSpeakerArrangement (Steinberg::Vst::SpeakerArrangement arr) noexcept
 {
     using namespace Steinberg::Vst::SpeakerArr;
+
+    for (const auto& mapping : Ambisonics::mappings)
+        if (arr == mapping.arrangement)
+            return mapping.channelSet;
 
     if (const auto order = getSpeakerOrder (arr))
         return AudioChannelSet::channelSetWithChannels (*order);
@@ -1069,9 +1119,17 @@ public:
     {
         mappings = std::move (arrangements);
 
-        floatBusMap .resize (mappings.size());
-        doubleBusMap.resize (mappings.size());
-        busBuffers  .resize (mappings.size());
+        const auto numBuses = mappings.size();
+        floatBusMap .resize (numBuses);
+        doubleBusMap.resize (numBuses);
+        busBuffers  .resize (numBuses);
+
+        for (auto [index, busMap] : enumerate (mappings, size_t{}))
+        {
+            const auto numChannels = busMap.size();
+            floatBusMap [index].reserve (numChannels);
+            doubleBusMap[index].reserve (numChannels);
+        }
     }
 
     /*  Applies the mapping to an AudioBuffer using JUCE channel layout. */
@@ -1107,6 +1165,10 @@ private:
                             const ChannelMapping& busMap,
                             int channelStartOffset) const
     {
+        // If this is hit, we may be about to allocate memory. Ideally, this should have been
+        // allocated in prepare().
+        jassert (busMap.size() <= bus.capacity());
+
         bus.clear();
 
         for (size_t i = 0; i < busMap.size(); ++i)
@@ -1131,31 +1193,35 @@ private:
 };
 
 //==============================================================================
+// We have to trust that Steinberg won't double-delete
+// NOLINTBEGIN(clang-analyzer-cplusplus.NewDelete)
 template <class ObjectType>
 class VSTComSmartPtr
 {
 public:
-    VSTComSmartPtr() noexcept : source (nullptr) {}
-    VSTComSmartPtr (ObjectType* object, bool autoAddRef = true) noexcept  : source (object)  { if (source != nullptr && autoAddRef) source->addRef(); }
+    VSTComSmartPtr() = default;
     VSTComSmartPtr (const VSTComSmartPtr& other) noexcept : source (other.source)            { if (source != nullptr) source->addRef(); }
     ~VSTComSmartPtr()                                                                        { if (source != nullptr) source->release(); }
 
-    operator ObjectType*() const noexcept    { return source; }
-    ObjectType* get() const noexcept         { return source; }
-    ObjectType& operator*() const noexcept   { return *source; }
-    ObjectType* operator->() const noexcept  { return source; }
+    explicit operator bool() const noexcept           { return operator!= (nullptr); }
+    ObjectType* get() const noexcept                  { return source; }
+    ObjectType& operator*() const noexcept            { return *source; }
+    ObjectType* operator->() const noexcept           { return source; }
 
-    VSTComSmartPtr& operator= (const VSTComSmartPtr& other)       { return operator= (other.source); }
-
-    VSTComSmartPtr& operator= (ObjectType* const newObjectToTakePossessionOf)
+    VSTComSmartPtr& operator= (const VSTComSmartPtr& other)
     {
-        VSTComSmartPtr p (newObjectToTakePossessionOf);
+        auto p = other;
         std::swap (p.source, source);
         return *this;
     }
 
-    bool operator== (ObjectType* const other) noexcept { return source == other; }
-    bool operator!= (ObjectType* const other) noexcept { return source != other; }
+    VSTComSmartPtr& operator= (std::nullptr_t)
+    {
+        return operator= (VSTComSmartPtr{});
+    }
+
+    bool operator== (std::nullptr_t) const noexcept { return source == nullptr; }
+    bool operator!= (std::nullptr_t) const noexcept { return source != nullptr; }
 
     bool loadFrom (Steinberg::FUnknown* o)
     {
@@ -1170,9 +1236,38 @@ public:
         return factory->createInstance (uuid, ObjectType::iid, (void**) &source) == Steinberg::kResultOk;
     }
 
+    /** Increments refcount. */
+    static auto addOwner (ObjectType* t)
+    {
+        return VSTComSmartPtr (t, true);
+    }
+
+    /** Does not initially increment refcount; assumes t has a positive refcount. */
+    static auto becomeOwner (ObjectType* t)
+    {
+        return VSTComSmartPtr (t, false);
+    }
+
 private:
-    ObjectType* source;
+    explicit VSTComSmartPtr (ObjectType* object, bool autoAddRef) noexcept  : source (object)  { if (source != nullptr && autoAddRef) source->addRef(); }
+    ObjectType* source = nullptr;
 };
+
+/** Increments refcount. */
+template <class ObjectType>
+auto addVSTComSmartPtrOwner (ObjectType* t)
+{
+    return VSTComSmartPtr<ObjectType>::addOwner (t);
+}
+
+/** Does not initially increment refcount; assumes t has a positive refcount. */
+template <class ObjectType>
+auto becomeVSTComSmartPtrOwner (ObjectType* t)
+{
+    return VSTComSmartPtr<ObjectType>::becomeOwner (t);
+}
+
+// NOLINTEND(clang-analyzer-cplusplus.NewDelete)
 
 //==============================================================================
 /*  This class stores a plugin's preferred MIDI mappings.
@@ -1335,7 +1430,7 @@ private:
                                                              controlEvent->controllerNumber);
 
         if (controlParamID != Steinberg::Vst::kNoParamId)
-            callback (controlParamID, controlEvent->paramValue);
+            callback (controlParamID, (float) controlEvent->paramValue, msg.getTimeStamp());
 
         return true;
     }
@@ -1422,12 +1517,14 @@ private:
         return e;
     }
 
-    static Steinberg::Vst::Event createSysExEvent (const MidiMessage& msg, const uint8* midiEventData) noexcept
+    static Steinberg::Vst::Event createSysExEvent (const MidiMessage& msg, const uint8* data) noexcept
     {
+        jassert (msg.isSysEx());
+
         Steinberg::Vst::Event e{};
         e.type          = Steinberg::Vst::Event::kDataEvent;
-        e.data.bytes    = midiEventData + 1;
-        e.data.size     = (uint32) msg.getSysExDataSize();
+        e.data.bytes    = data;
+        e.data.size     = (uint32) msg.getRawDataSize();
         e.data.type     = Steinberg::Vst::DataEvent::kMidiSysEx;
         return e;
     }
@@ -1581,6 +1678,28 @@ private:
         }
     }
 
+    static Optional<MidiMessage> toMidiMessage (const Steinberg::Vst::DataEvent& e)
+    {
+        if (e.type != Steinberg::Vst::DataEvent::kMidiSysEx || e.size < 2)
+        {
+            // Only sysex data messages can be converted to MIDI
+            jassertfalse;
+            return {};
+        }
+
+        const auto header = e.bytes[0];
+        const auto footer = e.bytes[e.size - 1];
+
+        if (header != 0xf0 || footer != 0xf7)
+        {
+            // The sysex header/footer bytes are missing
+            jassertfalse;
+            return {};
+        }
+
+        return MidiMessage::createSysExMessage (e.bytes + 1, (int) e.size - 2);
+    }
+
     static Optional<MidiMessage> toMidiMessage (const Steinberg::Vst::Event& e)
     {
         switch (e.type)
@@ -1601,7 +1720,7 @@ private:
                                                       (Steinberg::uint8) denormaliseToMidiValue (e.polyPressure.pressure));
 
             case Steinberg::Vst::Event::kDataEvent:
-                return MidiMessage::createSysExMessage (e.data.bytes, (int) e.data.size);
+                return toMidiMessage (e.data);
 
             case Steinberg::Vst::Event::kLegacyMIDICCOutEvent:
                 return toMidiMessage (e.midiCCOut);
@@ -1669,8 +1788,15 @@ public:
 
     Steinberg::Vst::ParamID getParamID (Steinberg::int32 index) const noexcept { return paramIds[(size_t) index]; }
 
-    void set                 (Steinberg::int32 index, float value)   { floatCache.setValueAndBits ((size_t) index, value, 1); }
-    void setWithoutNotifying (Steinberg::int32 index, float value)   { floatCache.setValue        ((size_t) index, value); }
+    void set (Steinberg::int32 index, float value)
+    {
+        floatCache.setValueAndBits ((size_t) index, value, 1);
+    }
+
+    float exchangeWithoutNotifying (Steinberg::int32 index, float value)
+    {
+        return floatCache.exchangeValue ((size_t) index, value);
+    }
 
     float get (Steinberg::int32 index) const noexcept { return floatCache.get ((size_t) index); }
 

@@ -8,7 +8,7 @@
 //
 //-----------------------------------------------------------------------------
 // LICENSE
-// (c) 2022, Steinberg Media Technologies GmbH, All Rights Reserved
+// (c) 2024, Steinberg Media Technologies GmbH, All Rights Reserved
 //-----------------------------------------------------------------------------
 // Redistribution and use in source and binary forms, with or without modification,
 // are permitted provided that the following conditions are met:
@@ -34,9 +34,11 @@
 // OF THE POSSIBILITY OF SUCH DAMAGE.
 //-----------------------------------------------------------------------------
 
-#include "../utility/optional.h"
-#include "../utility/stringconvert.h"
 #include "module.h"
+#include "public.sdk/source/vst/utility/optional.h"
+#include "public.sdk/source/vst/utility/stringconvert.h"
+
+#include "pluginterfaces/base/funknownimpl.h"
 
 #include <shlobj.h>
 #include <windows.h>
@@ -92,6 +94,13 @@ constexpr unsigned long kIPPathNameMax = 1024;
 namespace {
 
 #define USE_OLE !USE_FILESYSTEM
+
+// for testing only
+#if 0 // DEVELOPMENT
+#define LOG_ENABLE 1
+#else
+#define LOG_ENABLE 0
+#endif
 
 #if SMTG_PLATFORM_64
 
@@ -161,8 +170,11 @@ public:
 	}
 
 	//--- -----------------------------------------------------------------------
-	HINSTANCE loadAsPackage (const std::string& inPath, const char* archString = architectureString)
+	HINSTANCE loadAsPackage (const std::string& inPath, std::string& errorDescription,
+	                         const char* archString = architectureString)
 	{
+		namespace StringConvert = Steinberg::Vst::StringConvert;
+
 		filesystem::path p (inPath);
 		auto filename = p.filename ();
 		p /= "Contents";
@@ -172,34 +184,29 @@ public:
 		HINSTANCE instance = LoadLibraryW (reinterpret_cast<LPCWSTR> (wideStr.data ()));
 #if SMTG_CPU_ARM_64EC
 		if (instance == nullptr)
-			instance = loadAsPackage (inPath, architectureArm64XString);
+			instance = loadAsPackage (inPath, errorDescription, architectureArm64XString);
 		if (instance == nullptr)
-			instance = loadAsPackage (inPath, architectureX64String);
+			instance = loadAsPackage (inPath, errorDescription, architectureX64String);
 #endif
+		if (instance == nullptr)
+			getLastError (p.string (), errorDescription);
 		return instance;
 	}
 
 	//--- -----------------------------------------------------------------------
 	HINSTANCE loadAsDll (const std::string& inPath, std::string& errorDescription)
 	{
+		namespace StringConvert = Steinberg::Vst::StringConvert;
+
 		auto wideStr = StringConvert::convert (inPath);
 		HINSTANCE instance = LoadLibraryW (reinterpret_cast<LPCWSTR> (wideStr.data ()));
 		if (instance == nullptr)
 		{
-			auto lastError = GetLastError ();
-			LPVOID lpMessageBuffer {nullptr};
-			if (FormatMessageA (FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
-			                    nullptr, lastError, MAKELANGID (LANG_NEUTRAL, SUBLANG_DEFAULT),
-			                    (LPSTR)&lpMessageBuffer, 0, nullptr) > 0)
-			{
-				errorDescription = "LoadLibray failed: " + std::string ((char*)lpMessageBuffer);
-				LocalFree (lpMessageBuffer);
-			}
-			else
-			{
-				errorDescription =
-				    "LoadLibrary failed with error number : " + std::to_string (lastError);
-			}
+			getLastError (inPath, errorDescription);
+		}
+		else
+		{
+			hasBundleStructure = false;
 		}
 		return instance;
 	}
@@ -207,10 +214,16 @@ public:
 	//--- -----------------------------------------------------------------------
 	bool load (const std::string& inPath, std::string& errorDescription) override
 	{
-		if (filesystem::is_directory (inPath))
+// filesystem::u8path is deprecated in C++20
+#if SMTG_CPP20
+		const filesystem::path tmp (inPath);
+#else
+		const filesystem::path tmp = filesystem::u8path (inPath);
+#endif
+		if (filesystem::is_directory (tmp))
 		{
 			// try as package (bundle)
-			mModule = loadAsPackage (inPath);
+			mModule = loadAsPackage (inPath, errorDescription);
 		}
 		else
 		{
@@ -233,7 +246,7 @@ public:
 			errorDescription = "Calling 'InitDll' failed";
 			return false;
 		}
-		auto f = Steinberg::FUnknownPtr<Steinberg::IPluginFactory> (owned (factoryProc ()));
+		auto f = Steinberg::U::cast<Steinberg::IPluginFactory> (owned (factoryProc ()));
 		if (!f)
 		{
 			errorDescription = "Calling 'GetPluginFactory' returned nullptr";
@@ -244,6 +257,27 @@ public:
 	}
 
 	HINSTANCE mModule {nullptr};
+
+private:
+	//--- -----------------------------------------------------------------------
+	void getLastError (const std::string& inPath, std::string& errorDescription)
+	{
+		auto lastError = GetLastError ();
+		LPVOID lpMessageBuffer {nullptr};
+		if (FormatMessageA (FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, nullptr,
+		                    lastError, MAKELANGID (LANG_NEUTRAL, SUBLANG_DEFAULT),
+		                    (LPSTR)&lpMessageBuffer, 0, nullptr) > 0)
+		{
+			errorDescription = "LoadLibraryW failed for path " + inPath + ": " +
+			                   std::string ((char*)lpMessageBuffer);
+			LocalFree (lpMessageBuffer);
+		}
+		else
+		{
+			errorDescription = "LoadLibraryW failed with error number: " +
+			                   std::to_string (lastError) + " for path " + inPath;
+		}
+	}
 };
 
 //------------------------------------------------------------------------
@@ -306,6 +340,8 @@ bool isFolderSymbolicLink (const filesystem::path& p)
 //------------------------------------------------------------------------
 Optional<std::string> getKnownFolder (REFKNOWNFOLDERID folderID)
 {
+	namespace StringConvert = Steinberg::Vst::StringConvert;
+
 	PWSTR wideStr {};
 	if (FAILED (SHGetKnownFolderPath (folderID, 0, nullptr, &wideStr)))
 		return {};
@@ -358,6 +394,16 @@ VST3::Optional<filesystem::path> resolveShellLink (const filesystem::path& p)
 }
 
 //------------------------------------------------------------------------
+void addToPathList (Module::PathList& pathList, const std::string& toAdd)
+{
+#if LOG_ENABLE
+	std::cout << "=> add: " << toAdd << "\n";
+#endif
+
+	pathList.push_back (toAdd);
+}
+
+//------------------------------------------------------------------------
 void findFilesWithExt (const filesystem::path& path, const std::string& ext,
                        Module::PathList& pathList, bool recursive = true)
 {
@@ -382,7 +428,7 @@ void findFilesWithExt (const filesystem::path& path, const std::string& ext,
 			filesystem::path result;
 			if (checkVST3Package (finalPath, &result))
 			{
-				pathList.push_back (result.generic_string ());
+				addToPathList (pathList, result.generic_string ());
 				continue;
 			}
 		}
@@ -393,7 +439,7 @@ void findFilesWithExt (const filesystem::path& path, const std::string& ext,
 				findFilesWithExt (finalPath, ext, pathList, recursive);
 		}
 		else if (cpExt == ext)
-			pathList.push_back (finalPath.generic_string ());
+			addToPathList (pathList, finalPath.generic_string ());
 #else
 		const auto& cp = p.path ();
 		const auto& cpExt = cp.extension ();
@@ -405,13 +451,13 @@ void findFilesWithExt (const filesystem::path& path, const std::string& ext,
 				filesystem::path result;
 				if (checkVST3Package (p, &result))
 				{
-					pathList.push_back (result.generic_u8string ());
+					addToPathList (pathList, result.generic_u8string ());
 					continue;
 				}
 				findFilesWithExt (cp, ext, pathList, recursive);
 			}
 			else
-				pathList.push_back (cp.generic_u8string ());
+				addToPathList (pathList, cp.generic_u8string ());
 		}
 		else if (recursive)
 		{
@@ -431,13 +477,13 @@ void findFilesWithExt (const filesystem::path& path, const std::string& ext,
 							filesystem::path result;
 							if (checkVST3Package (*resolvedLink, &result))
 							{
-								pathList.push_back (result.generic_u8string ());
+								addToPathList (pathList, result.generic_u8string ());
 								continue;
 							}
 							findFilesWithExt (*resolvedLink, ext, pathList, recursive);
 						}
 						else
-							pathList.push_back (resolvedLink->generic_u8string ());
+							addToPathList (pathList, resolvedLink->generic_u8string ());
 					}
 					else if (filesystem::is_directory (*resolvedLink))
 					{
@@ -498,20 +544,28 @@ Module::Ptr Module::create (const std::string& path, std::string& errorDescripti
 //------------------------------------------------------------------------
 Module::PathList Module::getModulePaths ()
 {
+	namespace StringConvert = Steinberg::Vst::StringConvert;
+
 	// find plug-ins located in common/VST3
 	PathList list;
 	if (auto knownFolder = getKnownFolder (FOLDERID_UserProgramFilesCommon))
 	{
-		filesystem::path p (*knownFolder);
-		p.append ("VST3");
-		findModules (p, list);
+		filesystem::path path (*knownFolder);
+		path.append ("VST3");
+#if LOG_ENABLE
+		std::cout << "Check folder: " << path << "\n";
+#endif
+		findModules (path, list);
 	}
 
 	if (auto knownFolder = getKnownFolder (FOLDERID_ProgramFilesCommon))
 	{
-		filesystem::path p (*knownFolder);
-		p.append ("VST3");
-		findModules (p, list);
+		filesystem::path path (*knownFolder);
+		path.append ("VST3");
+#if LOG_ENABLE
+		std::cout << "Check folder: " << path << "\n";
+#endif
+		findModules (path, list);
 	}
 
 	// find plug-ins located in VST3 (application folder)
@@ -521,6 +575,9 @@ Module::PathList Module::getModulePaths ()
 	filesystem::path path (appPath);
 	path = path.parent_path ();
 	path = path.append ("VST3");
+#if LOG_ENABLE
+	std::cout << "Check folder: " << path << "\n";
+#endif
 	findModules (path, list);
 
 	return list;
@@ -540,6 +597,7 @@ Optional<std::string> Module::getModuleInfoPath (const std::string& modulePath)
 		path = Optional<filesystem::path> {p};
 	}
 
+	*path /= "Resources";
 	*path /= "moduleinfo.json";
 
 	if (filesystem::exists (*path))

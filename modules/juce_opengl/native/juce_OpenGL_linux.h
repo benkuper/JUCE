@@ -1,24 +1,33 @@
 /*
   ==============================================================================
 
-   This file is part of the JUCE library.
-   Copyright (c) 2022 - Raw Material Software Limited
+   This file is part of the JUCE framework.
+   Copyright (c) Raw Material Software Limited
 
-   JUCE is an open source library subject to commercial or open-source
+   JUCE is an open source framework subject to commercial or open source
    licensing.
 
-   By using JUCE, you agree to the terms of both the JUCE 7 End-User License
-   Agreement and JUCE Privacy Policy.
+   By downloading, installing, or using the JUCE framework, or combining the
+   JUCE framework with any other source code, object code, content or any other
+   copyrightable work, you agree to the terms of the JUCE End User Licence
+   Agreement, and all incorporated terms including the JUCE Privacy Policy and
+   the JUCE Website Terms of Service, as applicable, which will bind you. If you
+   do not agree to the terms of these agreements, we will not license the JUCE
+   framework to you, and you must discontinue the installation or download
+   process and cease use of the JUCE framework.
 
-   End User License Agreement: www.juce.com/juce-7-licence
-   Privacy Policy: www.juce.com/juce-privacy-policy
+   JUCE End User Licence Agreement: https://juce.com/legal/juce-8-licence/
+   JUCE Privacy Policy: https://juce.com/juce-privacy-policy
+   JUCE Website Terms of Service: https://juce.com/juce-website-terms-of-service/
 
-   Or: You may also use this code under the terms of the GPL v3 (see
-   www.gnu.org/licenses).
+   Or:
 
-   JUCE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES, WHETHER
-   EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR PURPOSE, ARE
-   DISCLAIMED.
+   You may also use this code under the terms of the AGPLv3:
+   https://www.gnu.org/licenses/agpl-3.0.en.html
+
+   THE JUCE FRAMEWORK IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL
+   WARRANTIES, WHETHER EXPRESSED OR IMPLIED, INCLUDING WARRANTY OF
+   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, ARE DISCLAIMED.
 
   ==============================================================================
 */
@@ -91,6 +100,85 @@ private:
 
         OpenGLContext::NativeContext& native;
     };
+
+    template <typename Traits>
+    class ScopedGLXObject
+    {
+    public:
+        using Type = typename Traits::Type;
+
+        ScopedGLXObject() = default;
+
+        explicit ScopedGLXObject (Type obj, ::Display* d)
+            : object (obj), display (d) {}
+
+        ScopedGLXObject (ScopedGLXObject&& other) noexcept
+            : object (std::exchange (other.object, Type{})),
+              display (std::exchange (other.display, nullptr)) {}
+
+        ScopedGLXObject& operator= (ScopedGLXObject&& other) noexcept
+        {
+            ScopedGLXObject { std::move (other) }.swap (*this);
+            return *this;
+        }
+
+        ~ScopedGLXObject() noexcept
+        {
+            if (object != Type{})
+                Traits::destroy (display, object);
+        }
+
+        Type get() const { return object; }
+
+        void reset() noexcept
+        {
+            *this = ScopedGLXObject();
+        }
+
+        void swap (ScopedGLXObject& other) noexcept
+        {
+            std::swap (other.object, object);
+            std::swap (other.display, display);
+        }
+
+        bool operator== (const ScopedGLXObject& other) const
+        {
+            const auto tie = [] (const auto& x) { return std::tie (x.object, x.display); };
+            return tie (*this) == tie (other);
+        }
+
+        bool operator!= (const ScopedGLXObject& other) const
+        {
+            return ! operator== (other);
+        }
+
+    private:
+        Type object{};
+        ::Display* display{};
+    };
+
+    struct TraitsGLXContext
+    {
+        using Type = GLXContext;
+
+        static void destroy (::Display* display, Type t)
+        {
+            glXDestroyContext (display, t);
+        }
+    };
+
+    struct TraitsGLXWindow
+    {
+        using Type = GLXWindow;
+
+        static void destroy (::Display* display, Type t)
+        {
+            glXDestroyWindow (display, t);
+        }
+    };
+
+    using PtrGLXContext = ScopedGLXObject<TraitsGLXContext>;
+    using PtrGLXWindow = ScopedGLXObject<TraitsGLXWindow>;
 
 public:
     NativeContext (Component& comp,
@@ -215,16 +303,20 @@ public:
                     None
                 };
 
-                renderContext = glXCreateContextAttribsARB (display, *bestConfig, (GLXContext) contextToShareWith, GL_TRUE, attribs);
+                renderContext = PtrGLXContext { glXCreateContextAttribsARB (display, *bestConfig, (GLXContext) contextToShareWith, GL_TRUE, attribs),
+                                                display };
             }
         }
 
-        if (renderContext == nullptr)
-            renderContext = glXCreateNewContext (display, *bestConfig, GLX_RGBA_TYPE, (GLXContext) contextToShareWith, GL_TRUE);
+        if (renderContext == PtrGLXContext{})
+            renderContext = PtrGLXContext { glXCreateNewContext (display, *bestConfig, GLX_RGBA_TYPE, (GLXContext) contextToShareWith, GL_TRUE),
+                                            display };
 
-        if (renderContext == nullptr)
+        if (renderContext == PtrGLXContext{})
             return InitResult::fatal;
 
+        glxWindow = PtrGLXWindow { glXCreateWindow (display, *bestConfig, embeddedWindow, nullptr),
+                                   display };
         c.makeActive();
         context = &c;
         return InitResult::success;
@@ -235,21 +327,21 @@ public:
         XWindowSystemUtilities::ScopedXLock xLock;
         context = nullptr;
         deactivateCurrentContext();
-        glXDestroyContext (display, renderContext);
-        renderContext = nullptr;
+        renderContext.reset();
+        glxWindow.reset();
     }
 
     bool makeActive() const noexcept
     {
         XWindowSystemUtilities::ScopedXLock xLock;
-        return renderContext != nullptr
-                 && glXMakeCurrent (display, embeddedWindow, renderContext);
+        return renderContext != PtrGLXContext{}
+                 && glXMakeContextCurrent (display, glxWindow.get(), glxWindow.get(), renderContext.get());
     }
 
     bool isActive() const noexcept
     {
         XWindowSystemUtilities::ScopedXLock xLock;
-        return glXGetCurrentContext() == renderContext && renderContext != nullptr;
+        return glXGetCurrentContext() == renderContext.get() && renderContext != PtrGLXContext{};
     }
 
     static void deactivateCurrentContext()
@@ -263,8 +355,7 @@ public:
 
     void swapBuffers()
     {
-        XWindowSystemUtilities::ScopedXLock xLock;
-        glXSwapBuffers (display, embeddedWindow);
+        glXSwapBuffers (display, glxWindow.get());
     }
 
     void updateWindowPosition (Rectangle<int> newBounds)
@@ -284,12 +375,12 @@ public:
         if (numFramesPerSwap == swapFrames)
             return true;
 
-        if (auto GLXSwapIntervalSGI
-              = (PFNGLXSWAPINTERVALSGIPROC) OpenGLHelpers::getExtensionFunction ("glXSwapIntervalSGI"))
+        if (auto GLXSwapIntervalEXT
+              = (PFNGLXSWAPINTERVALEXTPROC) OpenGLHelpers::getExtensionFunction ("glXSwapIntervalEXT"))
         {
             XWindowSystemUtilities::ScopedXLock xLock;
             swapFrames = numFramesPerSwap;
-            GLXSwapIntervalSGI (numFramesPerSwap);
+            GLXSwapIntervalEXT (display, glxWindow.get(), numFramesPerSwap);
             return true;
         }
 
@@ -298,7 +389,7 @@ public:
 
     int getSwapInterval() const                 { return swapFrames; }
     bool createdOk() const noexcept             { return true; }
-    void* getRawContext() const noexcept        { return renderContext; }
+    void* getRawContext() const noexcept        { return renderContext.get(); }
     GLuint getFrameBufferID() const noexcept    { return 0; }
 
     void triggerRepaint()
@@ -346,12 +437,13 @@ private:
 
     CriticalSection mutex;
     Component& component;
-    GLXContext renderContext = {};
+    PtrGLXContext renderContext;
+    PtrGLXWindow glxWindow;
     Window embeddedWindow = {};
 
     std::optional<PeerListener> peerListener;
 
-    int swapFrames = 1;
+    int swapFrames = 0;
     Rectangle<int> bounds;
     std::unique_ptr<GLXFBConfig, XFreeDeleter> bestConfig;
     void* contextToShareWith;

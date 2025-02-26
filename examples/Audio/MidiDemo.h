@@ -1,18 +1,22 @@
 /*
   ==============================================================================
 
-   This file is part of the JUCE examples.
-   Copyright (c) 2022 - Raw Material Software Limited
+   This file is part of the JUCE framework examples.
+   Copyright (c) Raw Material Software Limited
 
    The code included in this file is provided under the terms of the ISC license
    http://www.isc.org/downloads/software-support-policy/isc-license. Permission
-   To use, copy, modify, and/or distribute this software for any purpose with or
+   to use, copy, modify, and/or distribute this software for any purpose with or
    without fee is hereby granted provided that the above copyright notice and
    this permission notice appear in all copies.
 
-   THE SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES,
-   WHETHER EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR
-   PURPOSE, ARE DISCLAIMED.
+   THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+   REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+   AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+   INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+   LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+   OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+   PERFORMANCE OF THIS SOFTWARE.
 
   ==============================================================================
 */
@@ -50,7 +54,7 @@
 
 
 //==============================================================================
-struct MidiDeviceListEntry : ReferenceCountedObject
+struct MidiDeviceListEntry final : ReferenceCountedObject
 {
     explicit MidiDeviceListEntry (MidiDeviceInfo info) : deviceInfo (info) {}
 
@@ -72,10 +76,10 @@ struct MidiDeviceListEntry : ReferenceCountedObject
 
 
 //==============================================================================
-class MidiDemo  : public Component,
-                  private MidiKeyboardState::Listener,
-                  private MidiInputCallback,
-                  private AsyncUpdater
+class MidiDemo final : public Component,
+                       private MidiKeyboardState::Listener,
+                       private MidiInputCallback,
+                       private AsyncUpdater
 {
 public:
     //==============================================================================
@@ -233,8 +237,8 @@ public:
 
 private:
     //==============================================================================
-    struct MidiDeviceListBox : private ListBoxModel,
-                               public ListBox
+    struct MidiDeviceListBox final : private ListBoxModel,
+                                     public ListBox
     {
         MidiDeviceListBox (const String& name,
                            MidiDemo& contentComponent,
@@ -311,7 +315,7 @@ private:
         {
             SparseSet<int> selectedRows;
             for (auto i = 0; i < midiDevices.size(); ++i)
-                if (midiDevices[i]->inDevice.get() != nullptr || midiDevices[i]->outDevice.get() != nullptr)
+                if (midiDevices[i]->inDevice != nullptr || midiDevices[i]->outDevice != nullptr)
                     selectedRows.addRange (Range<int> (i, i + 1));
 
             lastSelectedItems = selectedRows;
@@ -356,7 +360,7 @@ private:
     void sendToOutputs (const MidiMessage& msg)
     {
         for (auto midiOutput : midiOutputs)
-            if (midiOutput->outDevice.get() != nullptr)
+            if (midiOutput->outDevice != nullptr)
                 midiOutput->outDevice->sendMessageNow (msg);
     }
 
@@ -445,7 +449,7 @@ private:
     //==============================================================================
     void addLabelAndSetStyle (Label& label)
     {
-        label.setFont (Font (15.00f, Font::plain));
+        label.setFont (FontOptions (15.00f, Font::plain));
         label.setJustificationType (Justification::centredLeft);
         label.setEditable (false, false, false);
         label.setColour (TextEditor::textColourId, Colours::black);

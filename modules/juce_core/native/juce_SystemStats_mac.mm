@@ -1,21 +1,33 @@
 /*
   ==============================================================================
 
-   This file is part of the JUCE library.
-   Copyright (c) 2022 - Raw Material Software Limited
+   This file is part of the JUCE framework.
+   Copyright (c) Raw Material Software Limited
 
-   JUCE is an open source library subject to commercial or open-source
+   JUCE is an open source framework subject to commercial or open source
    licensing.
 
-   The code included in this file is provided under the terms of the ISC license
-   http://www.isc.org/downloads/software-support-policy/isc-license. Permission
-   To use, copy, modify, and/or distribute this software for any purpose with or
-   without fee is hereby granted provided that the above copyright notice and
-   this permission notice appear in all copies.
+   By downloading, installing, or using the JUCE framework, or combining the
+   JUCE framework with any other source code, object code, content or any other
+   copyrightable work, you agree to the terms of the JUCE End User Licence
+   Agreement, and all incorporated terms including the JUCE Privacy Policy and
+   the JUCE Website Terms of Service, as applicable, which will bind you. If you
+   do not agree to the terms of these agreements, we will not license the JUCE
+   framework to you, and you must discontinue the installation or download
+   process and cease use of the JUCE framework.
 
-   JUCE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES, WHETHER
-   EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR PURPOSE, ARE
-   DISCLAIMED.
+   JUCE End User Licence Agreement: https://juce.com/legal/juce-8-licence/
+   JUCE Privacy Policy: https://juce.com/juce-privacy-policy
+   JUCE Website Terms of Service: https://juce.com/juce-website-terms-of-service/
+
+   Or:
+
+   You may also use this code under the terms of the AGPLv3:
+   https://www.gnu.org/licenses/agpl-3.0.en.html
+
+   THE JUCE FRAMEWORK IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL
+   WARRANTIES, WHETHER EXPRESSED OR IMPLIED, INCLUDING WARRANTY OF
+   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, ARE DISCLAIMED.
 
   ==============================================================================
 */
@@ -136,6 +148,8 @@ SystemStats::OperatingSystemType SystemStats::getOperatingSystemType()
         case 11: return MacOS_11;
         case 12: return MacOS_12;
         case 13: return MacOS_13;
+        case 14: return MacOS_14;
+        case 15: return MacOS_15;
     }
 
     return MacOSX;
@@ -311,7 +325,7 @@ public:
         }
 
         highResTimerFrequency = (timebase.denom * (uint64) 1000000000) / timebase.numer;
-        highResTimerToMillisecRatio = hiResCounterNumerator / (double) hiResCounterDenominator;
+        highResTimerToMillisecRatio = (double) hiResCounterNumerator / (double) hiResCounterDenominator;
     }
 
     uint32 millisecondsSinceStartup() const noexcept
@@ -321,7 +335,7 @@ public:
 
     double getMillisecondCounterHiRes() const noexcept
     {
-        return mach_absolute_time() * highResTimerToMillisecRatio;
+        return (double) mach_absolute_time() * highResTimerToMillisecRatio;
     }
 
     int64 highResTimerFrequency;
@@ -351,32 +365,29 @@ int SystemStats::getPageSize()
 
 String SystemStats::getUniqueDeviceID()
 {
-    static const auto deviceId = []
+   #if JUCE_MAC
+    constexpr mach_port_t port = 0;
+
+    const auto dict = IOServiceMatching ("IOPlatformExpertDevice");
+
+    if (const auto service = IOServiceGetMatchingService (port, dict); service != IO_OBJECT_NULL)
     {
-        ChildProcess proc;
+        const ScopeGuard scope { [&] { IOObjectRelease (service); } };
 
-        if (proc.start ("ioreg -rd1 -c IOPlatformExpertDevice", ChildProcess::wantStdOut))
-        {
-            constexpr const char key[] = "\"IOPlatformUUID\"";
-            constexpr const auto keyLen = (int) sizeof (key);
+        if (const CFUniquePtr<CFTypeRef> uuidTypeRef { IORegistryEntryCreateCFProperty (service, CFSTR ("IOPlatformUUID"), kCFAllocatorDefault, 0) })
+            if (CFGetTypeID (uuidTypeRef.get()) == CFStringGetTypeID())
+                return String::fromCFString ((CFStringRef) uuidTypeRef.get()).removeCharacters ("-");
+    }
+   #elif JUCE_IOS
+    JUCE_AUTORELEASEPOOL
+    {
+        if (UIDevice* device = [UIDevice currentDevice])
+            if (NSUUID* uuid = [device identifierForVendor])
+                return nsStringToJuce ([uuid UUIDString]);
+    }
+   #endif
 
-            auto output = proc.readAllProcessOutput();
-            auto index = output.indexOf (key);
-
-            if (index >= 0)
-            {
-                auto start = output.indexOf (index + keyLen, "\"");
-                auto end = output.indexOf (start + 1, "\"");
-                return output.substring (start + 1, end).replace("-", "");
-            }
-        }
-
-        return String();
-    }();
-
-    // Please tell someone at JUCE if this occurs
-    jassert (deviceId.isNotEmpty());
-    return deviceId;
+    return "";
 }
 
 #if JUCE_MAC

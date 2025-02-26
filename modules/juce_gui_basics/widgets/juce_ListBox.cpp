@@ -1,24 +1,33 @@
 /*
   ==============================================================================
 
-   This file is part of the JUCE library.
-   Copyright (c) 2022 - Raw Material Software Limited
+   This file is part of the JUCE framework.
+   Copyright (c) Raw Material Software Limited
 
-   JUCE is an open source library subject to commercial or open-source
+   JUCE is an open source framework subject to commercial or open source
    licensing.
 
-   By using JUCE, you agree to the terms of both the JUCE 7 End-User License
-   Agreement and JUCE Privacy Policy.
+   By downloading, installing, or using the JUCE framework, or combining the
+   JUCE framework with any other source code, object code, content or any other
+   copyrightable work, you agree to the terms of the JUCE End User Licence
+   Agreement, and all incorporated terms including the JUCE Privacy Policy and
+   the JUCE Website Terms of Service, as applicable, which will bind you. If you
+   do not agree to the terms of these agreements, we will not license the JUCE
+   framework to you, and you must discontinue the installation or download
+   process and cease use of the JUCE framework.
 
-   End User License Agreement: www.juce.com/juce-7-licence
-   Privacy Policy: www.juce.com/juce-privacy-policy
+   JUCE End User Licence Agreement: https://juce.com/legal/juce-8-licence/
+   JUCE Privacy Policy: https://juce.com/juce-privacy-policy
+   JUCE Website Terms of Service: https://juce.com/juce-website-terms-of-service/
 
-   Or: You may also use this code under the terms of the GPL v3 (see
-   www.gnu.org/licenses).
+   Or:
 
-   JUCE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL WARRANTIES, WHETHER
-   EXPRESSED OR IMPLIED, INCLUDING MERCHANTABILITY AND FITNESS FOR PURPOSE, ARE
-   DISCLAIMED.
+   You may also use this code under the terms of the AGPLv3:
+   https://www.gnu.org/licenses/agpl-3.0.en.html
+
+   THE JUCE FRAMEWORK IS PROVIDED "AS IS" WITHOUT ANY WARRANTY, AND ALL
+   WARRANTIES, WHETHER EXPRESSED OR IMPLIED, INCLUDING WARRANTY OF
+   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, ARE DISCLAIMED.
 
   ==============================================================================
 */
@@ -107,7 +116,7 @@ public:
 
     void mouseDrag (const MouseEvent& e) override
     {
-        if (auto* m = getOwner().getModel())
+        if (auto* m = getModel (getOwner()))
         {
             if (asBase().isEnabled() && e.mouseWasDraggedSinceMouseDown() && ! isDragging)
             {
@@ -143,20 +152,23 @@ private:
     const Base& asBase()    const { return *static_cast<const Base*> (this); }
           Base& asBase()          { return *static_cast<      Base*> (this); }
 
+    static TableListBoxModel* getModel (TableListBox& x)     { return x.getTableListBoxModel(); }
+    static ListBoxModel*      getModel (ListBox& x)          { return x.getListBoxModel(); }
+
     int row = -1;
     bool selected = false, isDragging = false, isDraggingToScroll = false, selectRowOnMouseUp = false;
 };
 
 //==============================================================================
-class ListBox::RowComponent  : public TooltipClient,
-                               public ComponentWithListRowMouseBehaviours<RowComponent>
+class ListBox::RowComponent final  : public TooltipClient,
+                                     public ComponentWithListRowMouseBehaviours<RowComponent>
 {
 public:
     explicit RowComponent (ListBox& lb) : owner (lb) {}
 
     void paint (Graphics& g) override
     {
-        if (auto* m = owner.getModel())
+        if (auto* m = owner.getListBoxModel())
             m->paintListBoxItem (getRow(), g, getWidth(), getHeight(), isSelected());
     }
 
@@ -164,7 +176,7 @@ public:
     {
         updateRowAndSelection (newRow, nowSelected);
 
-        if (auto* m = owner.getModel())
+        if (auto* m = owner.getListBoxModel())
         {
             setMouseCursor (m->getMouseCursorForRow (getRow()));
 
@@ -188,14 +200,14 @@ public:
     {
         owner.selectRowsBasedOnModifierKeys (getRow(), e.mods, isMouseUp);
 
-        if (auto* m = owner.getModel())
+        if (auto* m = owner.getListBoxModel())
             m->listBoxItemClicked (getRow(), e);
     }
 
     void mouseDoubleClick (const MouseEvent& e) override
     {
         if (isEnabled())
-            if (auto* m = owner.getModel())
+            if (auto* m = owner.getListBoxModel())
                 m->listBoxItemDoubleClicked (getRow(), e);
     }
 
@@ -207,7 +219,7 @@ public:
 
     String getTooltip() override
     {
-        if (auto* m = owner.getModel())
+        if (auto* m = owner.getListBoxModel())
             return m->getTooltipForRow (getRow());
 
         return {};
@@ -224,7 +236,7 @@ public:
 
 private:
     //==============================================================================
-    class RowAccessibilityHandler  : public AccessibilityHandler
+    class RowAccessibilityHandler final : public AccessibilityHandler
     {
     public:
         explicit RowAccessibilityHandler (RowComponent& rowComponentToWrap)
@@ -238,7 +250,7 @@ private:
 
         String getTitle() const override
         {
-            if (auto* m = rowComponent.owner.getModel())
+            if (auto* m = rowComponent.owner.getListBoxModel())
                 return m->getNameForRow (rowComponent.getRow());
 
             return {};
@@ -248,7 +260,7 @@ private:
 
         AccessibleState getCurrentState() const override
         {
-            if (auto* m = rowComponent.owner.getModel())
+            if (auto* m = rowComponent.owner.getListBoxModel())
                 if (rowComponent.getRow() >= m->getNumRows())
                     return AccessibleState().withIgnored();
 
@@ -266,7 +278,7 @@ private:
         }
 
     private:
-        class RowCellInterface  : public AccessibilityCellInterface
+        class RowCellInterface final : public AccessibilityCellInterface
         {
         public:
             explicit RowCellInterface (RowAccessibilityHandler& h)  : handler (h)  {}
@@ -294,15 +306,15 @@ private:
 
 
 //==============================================================================
-class ListBox::ListViewport  : public Viewport,
-                               private Timer
+class ListBox::ListViewport final : public Viewport,
+                                    private Timer
 {
 public:
     ListViewport (ListBox& lb)  : owner (lb)
     {
         setWantsKeyboardFocus (false);
 
-        struct IgnoredComponent : Component
+        struct IgnoredComponent final : public Component
         {
             std::unique_ptr<AccessibilityHandler> createAccessibilityHandler() override
             {
@@ -345,7 +357,7 @@ public:
     {
         updateVisibleArea (true);
 
-        if (auto* m = owner.getModel())
+        if (auto* m = owner.getListBoxModel())
             m->listWasScrolled();
 
         startTimer (50);
@@ -509,7 +521,7 @@ private:
 };
 
 //==============================================================================
-struct ListBoxMouseMoveSelector  : public MouseListener
+struct ListBoxMouseMoveSelector final : public MouseListener
 {
     ListBoxMouseMoveSelector (ListBox& lb) : owner (lb)
     {
@@ -1156,7 +1168,7 @@ void ListBox::startDragAndDrop (const MouseEvent& e, const SparseSet<int>& rowsT
 
 std::unique_ptr<AccessibilityHandler> ListBox::createAccessibilityHandler()
 {
-    class TableInterface  : public AccessibilityTableInterface
+    class TableInterface final : public AccessibilityTableInterface
     {
     public:
         explicit TableInterface (ListBox& listBoxToWrap)
