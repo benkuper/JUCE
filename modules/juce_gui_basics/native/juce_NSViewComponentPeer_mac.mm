@@ -1731,6 +1731,7 @@ public:
     bool isStretchingTop = false, isStretchingLeft = false, isStretchingBottom = false, isStretchingRight = false;
     bool windowRepresentsFile = false;
     bool isAlwaysOnTop = false, wasAlwaysOnTop = false, inBecomeKeyWindow = false;
+    bool inPerformKeyEquivalent = false;
     String stringBeingComposed;
     int startOfMarkedTextInTextInputTarget = 0;
 
@@ -2333,6 +2334,13 @@ struct JuceNSViewClass final : public NSViewComponentPeerWrapper<ObjCClass<NSVie
             if (auto* owner = getOwner (self))
             {
                 const auto ref = owner->safeComponent;
+                const auto prev = std::exchange (owner->inPerformKeyEquivalent, true);
+
+                const ScopeGuard scope { [&ref, owner, prev]
+                {
+                    if (ref != nullptr)
+                        owner->inPerformKeyEquivalent = prev;
+                } };
 
                 if (owner->sendEventToInputContextOrComponent (ev))
                 {
@@ -2982,7 +2990,7 @@ void Desktop::setKioskComponent (Component* kioskComp, bool shouldBeEnabled, boo
         else if (! shouldBeEnabled)
             [NSApp setPresentationOptions: NSApplicationPresentationDefault];
 
-        peer->setFullScreen (true);
+        peer->setFullScreen (shouldBeEnabled);
     }
     else
     {

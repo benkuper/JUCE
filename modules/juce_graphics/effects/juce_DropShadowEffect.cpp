@@ -65,23 +65,23 @@ void DropShadow::drawForPath (Graphics& g, const Path& path) const
             .expanded (radius + 1)
             .getIntersection (g.getClipBounds().expanded (radius + 1));
 
-    if (area.getWidth() > 2 && area.getHeight() > 2)
+    if (area.getWidth() <= 2 || area.getHeight() <= 2)
+        return;
+
+    Image pathImage { Image::SingleChannel, area.getWidth(), area.getHeight(), true };
+    pathImage.setBackupEnabled (false);
+
     {
-        Image pathImage { Image::SingleChannel, area.getWidth(), area.getHeight(), true };
-        pathImage.setBackupEnabled (false);
-
-        {
-            Graphics g2 (pathImage);
-            g2.setColour (Colours::white);
-            g2.fillPath (path, AffineTransform::translation ((float) (offset.x - area.getX()),
-                                                             (float) (offset.y - area.getY())));
-        }
-
-        pathImage.getPixelData()->applySingleChannelBoxBlurEffect (radius);
-
-        g.setColour (colour);
-        g.drawImageAt (pathImage, area.getX(), area.getY(), true);
+        Graphics g2 (pathImage);
+        g2.setColour (Colours::white);
+        g2.fillPath (path, AffineTransform::translation ((float) (offset.x - area.getX()),
+                                                         (float) (offset.y - area.getY())));
     }
+
+    pathImage.getPixelData()->applySingleChannelBoxBlurEffect (radius);
+
+    g.setColour (colour);
+    g.drawImageAt (pathImage, area.getX(), area.getY(), true);
 }
 
 static void drawShadowSection (Graphics& g, ColourGradient& cg, Rectangle<float> area,
