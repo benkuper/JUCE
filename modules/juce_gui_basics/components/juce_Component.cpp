@@ -2140,7 +2140,7 @@ void Component::internalMouseEnter (SafePointer<Component> target, MouseInputSou
                                     false);
 
     HierarchyChecker checker (&target, me);
-    if(!flags.disableInternalMouseEventsFlag) mouseEnter (me);
+    if(!target->flags.disableInternalMouseEventsFlag) target->mouseEnter (me);
 
     if (checker.shouldBailOut())
         return;
@@ -2180,7 +2180,7 @@ void Component::internalMouseExit (SafePointer<Component> target, MouseInputSour
                                     false);
 
     HierarchyChecker checker (&target, me);
-    if (!flags.disableInternalMouseEventsFlag) mouseExit (me);
+    if (!target->flags.disableInternalMouseEventsFlag) target->mouseExit (me);
 
     if (checker.shouldBailOut())
         return;
@@ -2246,7 +2246,7 @@ void Component::internalMouseDown (SafePointer<Component> target,
     if (target->flags.repaintOnMouseActivityFlag)
         target->repaint();
 
-    if (!flags.disableInternalMouseEventsFlag) mouseDown (me);
+    if (!target->flags.disableInternalMouseEventsFlag) target->mouseDown (me);
 
     if (checker.shouldBailOut())
         return;
@@ -2288,7 +2288,7 @@ void Component::internalMouseUp (SafePointer<Component> target,
     if (target->flags.repaintOnMouseActivityFlag)
         target->repaint();
 
-    if (!flags.disableInternalMouseEventsFlag) mouseUp (me);
+    if (!target->flags.disableInternalMouseEventsFlag) target->mouseUp (me);
 
     if (checker.shouldBailOut())
         return;
@@ -2305,7 +2305,7 @@ void Component::internalMouseUp (SafePointer<Component> target,
     if (me.getNumberOfClicks() >= 2)
     {
         if (target == originalTarget)
-            if (!flags.disableInternalMouseEventsFlag) mouseDoubleClick (checker.eventWithNearestParent());
+            if (!target->flags.disableInternalMouseEventsFlag) target->mouseDoubleClick (checker.eventWithNearestParent());
 
         if (checker.shouldBailOut())
             return;
@@ -2332,7 +2332,7 @@ void Component::internalMouseDrag (SafePointer<Component> target, MouseInputSour
 
         HierarchyChecker checker (&target, me);
 
-        if (!flags.disableInternalMouseEventsFlag) mouseDrag (me);
+        if (!target->flags.disableInternalMouseEventsFlag) target->mouseDrag (me);
 
         if (checker.shouldBailOut())
             return;
@@ -2366,7 +2366,7 @@ void Component::internalMouseMove (SafePointer<Component> target, MouseInputSour
 
         HierarchyChecker checker (&target, me);
 
-        if (!flags.disableInternalMouseEventsFlag) mouseMove (me);
+        if (!target->flags.disableInternalMouseEventsFlag) target->mouseMove (me);
 
         if (checker.shouldBailOut())
             return;
