@@ -32,37 +32,19 @@
   ==============================================================================
 */
 
+namespace juce
+{
 
-/*******************************************************************************
- The block below describes the properties of this module, and is read by
- the Projucer to automatically generate project code that uses it.
- For details about the syntax and how to create or use a module, see the
- JUCE Module Format.md file.
+auto GlyphArrangementOptions::tie() const noexcept
+{
+    return std::tie (lineSpacing, lineHeightMultiple);
+}
 
+bool GlyphArrangementOptions::operator== (const GlyphArrangementOptions& other) const { return tie() == other.tie(); }
+bool GlyphArrangementOptions::operator!= (const GlyphArrangementOptions& other) const { return tie() != other.tie(); }
+bool GlyphArrangementOptions::operator<  (const GlyphArrangementOptions& other) const { return tie() <  other.tie(); }
+bool GlyphArrangementOptions::operator<= (const GlyphArrangementOptions& other) const { return tie() <= other.tie(); }
+bool GlyphArrangementOptions::operator>  (const GlyphArrangementOptions& other) const { return tie() >  other.tie(); }
+bool GlyphArrangementOptions::operator>= (const GlyphArrangementOptions& other) const { return tie() >= other.tie(); }
 
- BEGIN_JUCE_MODULE_DECLARATION
-
-  ID:                 juce_javascript
-  vendor:             juce
-  version:            8.0.8
-  name:               JUCE Javascript interpreter
-  description:        Javascript interpreter.
-  website:            http://www.juce.com/juce
-  license:            AGPLv3/Commercial
-  minimumCppStandard: 17
-
-  dependencies:       juce_core
-
- END_JUCE_MODULE_DECLARATION
-
-*******************************************************************************/
-
-
-#pragma once
-#define JUCE_JAVASCRIPT_H_INCLUDED
-
-#include <juce_core/juce_core.h>
-
-#include "javascript/juce_JSObject.h"
-#include "javascript/juce_JSCursor.h"
-#include "javascript/juce_JavascriptEngine.h"
+} // namespace juce
