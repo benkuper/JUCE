@@ -32,24 +32,10 @@
   ==============================================================================
 */
 
-/** @cond */
-namespace juce::universal_midi_packets
+namespace juce
 {
 
-/** The kinds of MIDI protocol that can be formatted into Universal MIDI Packets. */
-enum class PacketProtocol
-{
-    MIDI_1_0,
-    MIDI_2_0,
-};
+void AudioProcessorListener::audioProcessorParameterChangeGestureBegin (AudioProcessor*, int) {}
+void AudioProcessorListener::audioProcessorParameterChangeGestureEnd   (AudioProcessor*, int) {}
 
-/** All kinds of MIDI protocol understood by JUCE. */
-enum class MidiProtocol
-{
-    bytestream,
-    UMP_MIDI_1_0,
-    UMP_MIDI_2_0,
-};
-
-} // namespace juce::universal_midi_packets
-/** @endcond */
+} // namespace juce

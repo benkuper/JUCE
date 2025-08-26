@@ -45,6 +45,7 @@ import android.app.Activity;
 import android.app.Application;
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
 import android.graphics.Paint;
@@ -117,36 +118,7 @@ public final class ComponentPeerView extends ViewGroup
         colorMatrix.set (colorTransform);
         paint.setColorFilter (new ColorMatrixColorFilter (colorMatrix));
 
-        java.lang.reflect.Method method = null;
-
-        try
-        {
-            method = getClass().getMethod ("setLayerType", int.class, Paint.class);
-        }
-        catch (SecurityException e)
-        {
-        }
-        catch (NoSuchMethodException e)
-        {
-        }
-
-        if (method != null)
-        {
-            try
-            {
-                int layerTypeNone = 0;
-                method.invoke (this, layerTypeNone, null);
-            }
-            catch (java.lang.IllegalArgumentException e)
-            {
-            }
-            catch (java.lang.IllegalAccessException e)
-            {
-            }
-            catch (java.lang.reflect.InvocationTargetException e)
-            {
-            }
-        }
+        setLayerType (LAYER_TYPE_NONE, null);
 
         Choreographer.getInstance().postFrameCallback (this);
     }
@@ -809,6 +781,13 @@ public final class ComponentPeerView extends ViewGroup
 
     public void setSystemUiVisibilityCompat (Window window, boolean visible, boolean isLight)
     {
+        if (window != null)
+        {
+            // Although this is deprecated in Android 35+, it still seems to be necessary
+            // to adjust the colour of the nav bar icons when in button-mode.
+            window.setNavigationBarColor (isLight ? Color.BLACK : Color.WHITE);
+        }
+
         if (30 <= Build.VERSION.SDK_INT)
         {
             WindowInsetsController controller = getWindowInsetsController();
