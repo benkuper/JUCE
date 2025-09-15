@@ -44,7 +44,7 @@
 
   ID:                 juce_dsp
   vendor:             juce
-  version:            8.0.8
+  version:            8.0.9
   name:               JUCE DSP classes
   description:        Classes for audio buffer manipulation, digital audio processing, filtering, oversampling, fast math functions etc.
   website:            http://www.juce.com/juce
@@ -92,10 +92,18 @@
   #endif
  #endif
 
- #if JUCE_64BIT && JUCE_WINDOWS
-  #include <arm64_neon.h>
- #else
-  #include <arm_neon.h>
+ #if JUCE_USE_SIMD
+  #if JUCE_WINDOWS
+   #if JUCE_64BIT
+    #if ! JUCE_CLANG
+     #include <arm64_neon.h>
+    #endif
+   #else
+    #include <arm_neon.h>
+   #endif
+  #else
+   #include <arm_neon.h>
+  #endif
  #endif
 
 #else
