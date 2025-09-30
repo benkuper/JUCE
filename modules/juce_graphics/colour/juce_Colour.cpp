@@ -42,16 +42,6 @@ namespace ColourHelpers
         return n <= 0.0f ? 0 : (n >= 1.0f ? 255 : (uint8) roundToInt (n * 255.0f));
     }
 
-    static float uInt8ToFloat (uint8 n) noexcept
-    {
-        return ((float)n) / 255.0f;
-    }
-
-    static float floatSanitize (float n) noexcept
-    {
-        return n <= 0.0f ? 0.0f : (n >= 1.0f ? 1.0f : n);
-    }
-
     static float getHue (Colour col)
     {
 #if JUCE_FLOAT_COLOURS
@@ -311,9 +301,9 @@ Colour::Colour (uint32 col) noexcept
 Colour::Colour (uint8 red, uint8 green, uint8 blue) noexcept
 {
 #if JUCE_FLOAT_COLOURS
-    r = ColourHelpers::uInt8ToFloat(red);
-    g = ColourHelpers::uInt8ToFloat(green);
-    b = ColourHelpers::uInt8ToFloat(blue);
+    r = red * 1.0f / 255;
+    g = green * 1.0f / 255;
+    b = blue * 1.0f / 255;
     a = 1.0f;
 #else
     argb.setARGB (0xff, red, green, blue);
@@ -328,10 +318,10 @@ Colour Colour::fromRGB (uint8 red, uint8 green, uint8 blue) noexcept
 Colour::Colour (uint8 red, uint8 green, uint8 blue, uint8 alpha) noexcept
 {
 #if JUCE_FLOAT_COLOURS
-    r = ColourHelpers::uInt8ToFloat(red);
-    g = ColourHelpers::uInt8ToFloat(green);
-    b = ColourHelpers::uInt8ToFloat(blue);
-    a = ColourHelpers::uInt8ToFloat(alpha);
+    r = red * 1.0f / 255;
+    g = green * 1.0f / 255;
+    b = blue * 1.0f / 255;
+    a = alpha * 1.0f / 255;
 #else
     argb.setARGB (alpha, red, green, blue);
 #endif
@@ -345,9 +335,9 @@ Colour Colour::fromRGBA (uint8 red, uint8 green, uint8 blue, uint8 alpha) noexce
 Colour::Colour (uint8 red, uint8 green, uint8 blue, float alpha) noexcept
 {
 #if JUCE_FLOAT_COLOURS
-    r = ColourHelpers::uInt8ToFloat(red);
-    g = ColourHelpers::uInt8ToFloat(green);
-    b = ColourHelpers::uInt8ToFloat(blue);
+    r = red * 1.0f / 255;
+    g = green * 1.0f / 255;
+    b = blue * 1.0f / 255;
     a = alpha;
 #else
     argb.setARGB (ColourHelpers::floatToUInt8 (alpha), red, green, blue);
@@ -357,10 +347,10 @@ Colour::Colour (uint8 red, uint8 green, uint8 blue, float alpha) noexcept
 Colour::Colour (float red, float green, float blue, float alpha, float) noexcept
 {
 #if JUCE_FLOAT_COLOURS
-    r = ColourHelpers::floatSanitize(red);
-    g = ColourHelpers::floatSanitize(green);
-    b = ColourHelpers::floatSanitize(blue);
-    a = ColourHelpers::floatSanitize(alpha);
+    r = jlimit(0.f, 1.f, red);
+    g = jlimit(0.f, 1.f, green);
+    b = jlimit(0.f, 1.f, blue);
+    a = jlimit(0.f, 1.f, alpha);
 #else
     argb.setARGB (ColourHelpers::floatToUInt8 (alpha),
                   ColourHelpers::floatToUInt8 (red),
@@ -402,7 +392,7 @@ Colour Colour::fromHSL (float hue, float saturation, float lightness, float alph
 
 Colour::Colour (float hue, float saturation, float brightness, uint8 alpha) noexcept
 #if JUCE_FLOAT_COLOURS
-    : Colour (ColourHelpers::HSB::toFloatColour (hue, saturation, brightness, ColourHelpers::uInt8ToFloat(alpha)))
+    : Colour (ColourHelpers::HSB::toFloatColour (hue, saturation, brightness, alpha * 1.0f / 255))
 #else
     : argb (ColourHelpers::HSB::toRGB (hue, saturation, brightness, alpha))
 #endif
@@ -471,7 +461,7 @@ bool Colour::isOpaque() const noexcept
 Colour Colour::withAlpha (uint8 newAlpha) const noexcept
 {
 #if JUCE_FLOAT_COLOURS
-    return Colour::fromFloatRGBA(r, g, b, ColourHelpers::uInt8ToFloat(newAlpha));
+    return Colour::fromFloatRGBA(r, g, b, newAlpha * 1.0f / 255);
 #else
     PixelARGB newCol (argb);
     newCol.setAlpha (newAlpha);
