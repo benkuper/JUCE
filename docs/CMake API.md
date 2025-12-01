@@ -498,10 +498,10 @@ attributes directly to these creation functions, rather than adding them later.
 - A string to insert into an app/plugin's Info.plist.
 
 `FORMATS`
-- For plugin targets, specifies the plugin targets to build. Should be provided as a
-  space-separated list. Valid values are `Standalone Unity VST3 AU AUv3 AAX VST LV2`. `AU` and
-  `AUv3` plugins will only be enabled when building on macOS. It is an error to pass `AAX` or `VST`
-  without first calling `juce_set_aax_sdk_path` or `juce_set_vst2_sdk_path` respectively.
+- For plugin targets, specifies the plugin targets to build. Should be provided as a space-separated
+  list. Valid values are `Standalone Unity VST3 AU AUv3 AAX VST LV2`. `AU` and `AUv3` plugins will
+  only be enabled when building on macOS; `AUv3` plugins will only be enabled when using the Xcode
+  generator. It is an error to pass `VST` without first calling `juce_set_vst2_sdk_path`.
 
 `PLUGIN_NAME`
 - The name of the plugin. In a DAW environment, this is the name that will be displayed to the
@@ -583,9 +583,10 @@ attributes directly to these creation functions, rather than adding them later.
 `VST3_CATEGORIES`
 - Should be one or more, separated by spaces, of the following: `Fx`, `Instrument`, `Analyzer`,
   `Delay`, `Distortion`, `Drum`, `Dynamics`, `EQ`, `External`, `Filter`, `Generator`, `Mastering`,
-  `Modulation`, `Mono`, `Network`, `NoOfflineProcess`, `OnlyOfflineProcess`, `OnlyRT`,
-  `Pitch Shift`, `Restoration`, `Reverb`, `Sampler`, `Spatial`, `Stereo`, `Surround`, `Synth`,
-  `Tools`, `Up-Downmix`. Defaults to `Synth` if `IS_SYNTH` is `TRUE`. Otherwise defaults to `Fx`.
+  `Modulation`, `Mono`, `Network`, `NoOfflineProcess`, `OnlyOfflineProcess`, `OnlyRT`, `Pitch
+  Shift`, `Restoration`, `Reverb`, `Sampler`, `Spatial`, `Stereo`, `Surround`, `Synth`, `Tools`,
+  `Up-Downmix`. Defaults to `Instrument Synth` if `IS_SYNTH` is `TRUE`. Otherwise defaults to
+  `Fx`.
 
 `AU_MAIN_TYPE`
 - Should be one of: `kAudioUnitType_Effect`, `kAudioUnitType_FormatConverter`,
