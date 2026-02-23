@@ -257,6 +257,18 @@ void AudioProcessorPlayer::audioDeviceIOCallbackWithContext (const float* const*
     incomingMidi.clear();
     messageCollector.removeNextBlockOfMessages (incomingMidi, numSamples);
 
+    if (processor != nullptr
+        && ! processor->isMidiEffect()
+        && numOutputChannels != actualProcessorChannels.outs)
+    {
+        jassertfalse; // Device output count doesn't match processor layout.
+
+        for (int i = 0; i < numOutputChannels; ++i)
+            FloatVectorOperations::clear (outputChannelData[i], numSamples);
+
+        return;
+    }
+
     initialiseIoBuffers ({ inputChannelData,  numInputChannels },
                          { outputChannelData, numOutputChannels },
                          numSamples,
