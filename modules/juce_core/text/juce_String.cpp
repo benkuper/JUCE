@@ -441,29 +441,34 @@ namespace NumberToStringConverters
 
     struct StackArrayStream final : public std::basic_streambuf<char, std::char_traits<char>>
     {
-        explicit StackArrayStream (char* d)
-        {
-            static const std::locale classicLocale (std::locale::classic());
-            imbue (classicLocale);
-            setp (d, d + charsNeededForDouble);
-        }
+        explicit StackArrayStream(char* d, size_t bufferSize = charsNeededForDouble)
+    {
+        // Ensure the buffer is large enough
+        jassert(bufferSize >= charsNeededForDouble);
 
-        size_t writeDouble (double n, int numDecPlaces, bool useScientificNotation)
+        static const std::locale classicLocale(std::locale::classic());
+        imbue(classicLocale);
+
+        // Set the put area with bounds checking
+        setp(d, d + std::min(bufferSize, static_cast<size_t>(charsNeededForDouble)));
+    }
+
+    size_t writeDouble(double n, int numDecPlaces, bool useScientificNotation)
+    {
         {
+            std::ostream o(this);
+
+            if (numDecPlaces > 0)
             {
-                std::ostream o (this);
-
-                if (numDecPlaces > 0)
-                {
-                    o.setf (useScientificNotation ? std::ios_base::scientific : std::ios_base::fixed);
-                    o.precision ((std::streamsize) numDecPlaces);
-                }
-
-                o << n;
+                o.setf(useScientificNotation ? std::ios_base::scientific : std::ios_base::fixed);
+                o.precision(static_cast<std::streamsize>(numDecPlaces));
             }
 
-            return (size_t) (pptr() - pbase());
+            o << n;
         }
+
+        return static_cast<size_t>(pptr() - pbase());
+    }
     };
 
     static char* doubleToString (char* buffer, double n, int numDecPlaces, bool useScientificNotation, size_t& len) noexcept
