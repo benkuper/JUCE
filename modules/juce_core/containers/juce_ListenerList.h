@@ -232,7 +232,9 @@ public:
 
         const ScopeGuard scope { [i = iterators, &it]
         {
-            i->erase (std::remove (i->begin(), i->end(), &it), i->end());
+           auto itPos = std::find(i->begin(), i->end(), &it);
+            if (itPos != i->end())
+                i->erase(itPos);
         } };
 
         for (; it.index < it.end; ++it.index)
