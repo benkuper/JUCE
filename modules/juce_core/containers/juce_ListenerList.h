@@ -112,9 +112,6 @@ public:
         if (! initialised())
             return;
 
-        if (listeners == nullptr || listeners->isEmpty())
-            return;
-
         const ScopedLockType lock (listeners->getLock());
 
         if (const auto index = listeners->removeFirstMatchingValue (listenerToRemove); index >= 0)
