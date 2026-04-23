@@ -311,6 +311,16 @@ public:
         const int h = parent.getItemHeight();
         const int space = h / 4;
 
+        if (inputDeviceDropDown != nullptr)
+        {
+            auto row = r.removeFromTop (h);
+
+            inputLevelMeter->setBounds (row.removeFromRight (testButton != nullptr ? testButton->getWidth() : row.getWidth() / 6));
+            row.removeFromRight (space);
+            inputDeviceDropDown->setBounds (row);
+            r.removeFromTop (space);
+        }
+
         if (outputDeviceDropDown != nullptr)
         {
             auto row = r.removeFromTop (h);
@@ -326,13 +336,11 @@ public:
             r.removeFromTop (space);
         }
 
-        if (inputDeviceDropDown != nullptr)
+        if (inputChanList != nullptr)
         {
-            auto row = r.removeFromTop (h);
-
-            inputLevelMeter->setBounds (row.removeFromRight (testButton != nullptr ? testButton->getWidth() : row.getWidth() / 6));
-            row.removeFromRight (space);
-            inputDeviceDropDown->setBounds (row);
+            inputChanList->setRowHeight (jmin (22, h));
+            inputChanList->setBounds (r.removeFromTop (inputChanList->getBestHeight (maxListBoxHeight)));
+            inputChanLabel->setBounds (0, inputChanList->getBounds().getCentreY() - h / 2, r.getX(), h);
             r.removeFromTop (space);
         }
 
@@ -341,14 +349,6 @@ public:
             outputChanList->setRowHeight (jmin (22, h));
             outputChanList->setBounds (r.removeFromTop (outputChanList->getBestHeight (maxListBoxHeight)));
             outputChanLabel->setBounds (0, outputChanList->getBounds().getCentreY() - h / 2, r.getX(), h);
-            r.removeFromTop (space);
-        }
-
-        if (inputChanList != nullptr)
-        {
-            inputChanList->setRowHeight (jmin (22, h));
-            inputChanList->setBounds (r.removeFromTop (inputChanList->getBestHeight (maxListBoxHeight)));
-            inputChanLabel->setBounds (0, inputChanList->getBounds().getCentreY() - h / 2, r.getX(), h);
             r.removeFromTop (space);
         }
 
@@ -508,8 +508,8 @@ public:
 
     void updateAllControls()
     {
-        updateOutputsComboBox();
         updateInputsComboBox();
+        updateOutputsComboBox();
 
         updateControlPanelButton();
         updateResetButton();
