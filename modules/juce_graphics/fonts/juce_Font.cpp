@@ -75,6 +75,12 @@ public:
 
         setSize (faces.size());
         defaultFace = nullptr;
+        generation.fetch_add (1, std::memory_order_release);
+    }
+
+    uint64 getGeneration() const noexcept
+    {
+        return generation.load (std::memory_order_acquire);
     }
 
     Typeface::Ptr findTypefaceFor (const Font& font)
@@ -159,6 +165,7 @@ private:
     ReadWriteLock lock;
     Array<CachedFace> faces;
     size_t counter = 0;
+    std::atomic<uint64> generation { 0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TypefaceCache)
 };
@@ -224,7 +231,8 @@ public:
         : typeface (face),
           typefaceName (face->getName()),
           typefaceStyle (face->getStyle()),
-          height (FontValues::defaultFontHeight)
+          height (FontValues::defaultFontHeight),
+          usesExplicitTypeface (true)
     {
         jassert (typefaceName.isNotEmpty());
     }
@@ -238,7 +246,9 @@ public:
           horizontalScale (other.horizontalScale),
           kerning (other.kerning),
           ascent (other.ascent),
-          underline (other.underline)
+          underline (other.underline),
+          typefaceCacheGeneration (other.typefaceCacheGeneration),
+          usesExplicitTypeface (other.usesExplicitTypeface)
     {
     }
 
@@ -268,19 +278,14 @@ public:
     Typeface::Ptr getTypefacePtr (const Font& f)
     {
         const ScopedLock lock (mutex);
-
-        if (typeface == nullptr)
-        {
-            typeface = TypefaceCache::getInstance()->findTypefaceFor (f);
-            jassert (typeface != nullptr);
-        }
-
-        return typeface;
+        return getTypefacePtrUnlocked (f);
     }
 
     void checkTypefaceSuitability (const Font& f)
     {
         const ScopedLock lock (mutex);
+
+        invalidateTypefaceIfCacheChanged();
 
         if (typeface != nullptr && ! typeface->isSuitableForFont (f))
             typeface = nullptr;
@@ -290,8 +295,10 @@ public:
     {
         const ScopedLock lock (mutex);
 
+        const auto currentTypeface = getTypefacePtrUnlocked (f);
+
         if (approximatelyEqual (ascent, 0.0f))
-            ascent = getTypefacePtr (f)->getAscent();
+            ascent = currentTypeface->getAscent();
 
         return height * ascent;
     }
@@ -319,6 +326,8 @@ public:
     {
         jassert (getReferenceCount() == 1);
         typeface = std::move (x);
+        usesExplicitTypeface = typeface != nullptr;
+        typefaceCacheGeneration = TypefaceCache::getInstance()->getGeneration();
     }
 
     void setTypefaceName (String x)
@@ -364,10 +373,39 @@ public:
     }
 
 private:
+    void invalidateTypefaceIfCacheChanged()
+    {
+        if (usesExplicitTypeface) return;
+
+        const auto currentGeneration = TypefaceCache::getInstance()->getGeneration();
+
+        if (typefaceCacheGeneration != currentGeneration)
+        {
+            typeface = nullptr;
+            ascent = 0.0f;
+            typefaceCacheGeneration = currentGeneration;
+        }
+    }
+
+    Typeface::Ptr getTypefacePtrUnlocked (const Font& f)
+    {
+        invalidateTypefaceIfCacheChanged();
+
+        if (typeface == nullptr)
+        {
+            typeface = TypefaceCache::getInstance()->findTypefaceFor (f);
+            jassert (typeface != nullptr);
+        }
+
+        return typeface;
+    }
+
     Typeface::Ptr typeface;
     String typefaceName, typefaceStyle;
     float height = 0.0f, horizontalScale = 1.0f, kerning = 0.0f, ascent = 0.0f;
     bool underline = false;
+    uint64 typefaceCacheGeneration = TypefaceCache::getInstance()->getGeneration();
+    bool usesExplicitTypeface = false;
 
     CriticalSection mutex;
 };
