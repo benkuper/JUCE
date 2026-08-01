@@ -775,7 +775,17 @@ struct StandardCachedComponentImage final : public CachedComponentImage
 
 	Rectangle<int> Component::getParentMonitorArea() const
 	{
-		return Desktop::getInstance().getDisplays().getDisplayForRect(getScreenBounds())->userArea;
+		auto& displays = Desktop::getInstance().getDisplays();
+
+		if (auto* display = displays.getDisplayForRect(getScreenBounds()))
+			return display->userArea;
+
+		if (auto* display = displays.getPrimaryDisplay())
+			return display->userArea;
+
+		// Display discovery can temporarily be empty while Linux desktops are
+		// starting or shutting down. Keep layout code usable until it refreshes.
+		return { 0, 0, 1024, 768 };
 	}
 
 	int Component::getScreenX() const { return getScreenPosition().x; }

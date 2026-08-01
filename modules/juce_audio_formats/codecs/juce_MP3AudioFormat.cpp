@@ -513,6 +513,17 @@ struct MP3Frame
         //emphasis          = header & 3;
         numChannels         = (mode == 3) ? 1 : 2;
 
+        // scanForNextFrameHeader() normally rejects these reserved values,
+        // but malformed/truncated streams can change between scanning and
+        // decoding. Keep all table indexes and the frequency divisor valid.
+        if (layer < 1 || layer > 3
+            || ! isPositiveAndBelow (sampleRateIndex, 9)
+            || bitrateIndex == 15)
+        {
+            frameSize = 0;
+            return ParseSuccessful::no;
+        }
+
         static constexpr int frameSizes[2][3][16] =
         {
             { { 0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448 },
