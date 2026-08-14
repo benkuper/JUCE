@@ -51,6 +51,49 @@ static auto operator< (const Justification& a, const Justification& b)
 //==============================================================================
 namespace
 {
+    struct GlyphArrangementCacheBase
+    {
+        virtual ~GlyphArrangementCacheBase() = default;
+    };
+
+    struct GlyphCacheRegistry
+    {
+        using List = std::list<GlyphArrangementCacheBase*>;
+        using Token = List::const_iterator;
+
+        static GlyphCacheRegistry& get()
+        {
+            static GlyphCacheRegistry result;
+            return result;
+        }
+
+        void clear()
+        {
+            const ScopedLock lock { mutex };
+
+            while (! list.empty())
+                delete list.front();
+        }
+
+        Token insert (GlyphArrangementCacheBase* cache)
+        {
+            const ScopedLock lock { mutex };
+            return list.emplace (list.begin(), cache);
+        }
+
+        void erase (Token token)
+        {
+            const ScopedLock lock { mutex };
+            list.erase (token);
+        }
+
+    private:
+        GlyphCacheRegistry() = default;
+
+        CriticalSection mutex;
+        List list;
+    };
+
     struct ConfiguredArrangement
     {
         void draw (const Graphics& g) const { arrangement.draw (g, transform); }
@@ -60,13 +103,15 @@ namespace
     };
 
     template <typename ArrangementArgs>
-    class GlyphArrangementCache final : public DeletedAtShutdown
+    class GlyphArrangementCache final : public DeletedAtShutdown,
+                                        public GlyphArrangementCacheBase
     {
     public:
         GlyphArrangementCache() = default;
 
         ~GlyphArrangementCache() override
         {
+            GlyphCacheRegistry::get().erase (registryToken);
             clearSingletonInstance();
         }
 
@@ -111,6 +156,8 @@ namespace
         JUCE_DECLARE_SINGLETON (GlyphArrangementCache<ArrangementArgs>, false)
 
     private:
+        GlyphCacheRegistry::Token registryToken = GlyphCacheRegistry::get().insert (this);
+
         struct CachedGlyphArrangement
         {
             using CachePtr = typename std::map<ArrangementArgs, CachedGlyphArrangement>::const_iterator;

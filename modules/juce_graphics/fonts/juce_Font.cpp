@@ -182,6 +182,7 @@ void (*clearOpenGLGlyphCache)() = nullptr;
 void Typeface::clearTypefaceCache()
 {
     TypefaceCache::getInstance()->clear();
+    GlyphCacheRegistry::get().clear();
 
     RenderingHelpers::SoftwareRendererSavedState::clearGlyphCache();
 
